@@ -1,0 +1,1209 @@
+{
+  "meta": {
+    "product": "Sorare NBA (in-season Limited)",
+    "title": "Sorare Jobs to be Done Product Roadmap",
+    "owner": "Danvers",
+    "goal": "Leave the season with at least the bankroll I brought. Cash profit preferred; a bigger collection is a fine second prize.",
+    "goalUnit": "USD",
+    "version": "0.5.0",
+    "date": "2026-10-29",
+    "schema": "SCHEMA.md",
+    "lockedModel": "v2.html",
+    "repos": {
+      "v1": {
+        "path": "~/Desktop/Sorare",
+        "role": "Rules, library, evidence, analysis scripts, the Trader console. Local only, no remote.",
+        "lastCommit": "2026-10-17"
+      },
+      "v2": {
+        "path": "~/sorare",
+        "remote": "https://github.com/danversfleury/sorare",
+        "role": "The production trading system: fetch, planning jobs, bidder, offerer, viewer.",
+        "lastCommit": "2026-10-29"
+      }
+    },
+    "knowledge": [
+      {
+        "name": "v1 context library",
+        "where": "v1:library/",
+        "note": "187 cards: tournament formats, streak ladders, prize tables, Essence, XP, the four zones."
+      },
+      {
+        "name": "v1 rule layer",
+        "where": "v1:rules/",
+        "note": "41 falsifiable mechanics with provenance; `python3 cli.py check`."
+      }
+    ],
+    "library": {
+      "path": "v2:library/",
+      "note": "Card names in `cards` fields resolve to files there. Validate with the check script below."
+    },
+    "product_pages": {
+      "v2": "http://127.0.0.1:8771/ (bin/sorare-viewer)",
+      "v1 trader": "http://127.0.0.1:8770/"
+    }
+  },
+  "stocks": [
+    {
+      "id": "cards",
+      "name": "Card inventory",
+      "group": "cards",
+      "notes": "Every card you hold. Idle cards depreciate.",
+      "cards": ["Mechanic - List Or Play"]
+    },
+    {
+      "id": "vault",
+      "name": "Sealed cards",
+      "group": "cards",
+      "notes": "Cards locked in the vault. They come back when you unseal.",
+      "cards": ["Mechanic - Sealing", "Mechanic - Unsealing", "Table - Vault Levels"]
+    },
+    {
+      "id": "cash",
+      "name": "Cash",
+      "group": "money",
+      "notes": "About 1% net cost to bring in; a small fee to take out.",
+      "cards": ["Table - Market Fees"]
+    },
+    {
+      "id": "eth",
+      "name": "ETH",
+      "group": "money",
+      "traits": ["exposure"],
+      "notes": "Some managers only deal in ETH. The only way out of ETH is to buy cards with it and sell them for cash (5% fee).",
+      "cards": ["Mechanic - ETH Exit Path", "Mechanic - Prize Currency Choice"]
+    },
+    {
+      "id": "credits",
+      "name": "Credits",
+      "group": "rewards",
+      "traits": ["sorareOnly"],
+      "notes": "Money off a Sorare sale (a $5 credit on a $10 buy). Not usable with managers. Carries a resale lock.",
+      "cards": ["Entity - Market Credit", "Mechanic - Credit Terms"]
+    },
+    {
+      "id": "clues",
+      "name": "Clues",
+      "group": "rewards",
+      "traits": ["craftOnly"],
+      "notes": "Improve craft odds. Optional: crafting needs Essence, clues only help.",
+      "cards": ["Entity - Craft Clue", "Mechanic - Clue Earn Paths"]
+    },
+    {
+      "id": "essence",
+      "name": "Essence",
+      "group": "rewards",
+      "traits": ["craftOnly"],
+      "notes": "Earned by playing and by collection missions. Spent only on crafting (and Arena entry). Loses dollar value across the season.",
+      "cards": [
+        "Entity - Essence",
+        "Mechanic - Essence Earn Paths",
+        "Mechanic - Essence Spend Paths"
+      ]
+    },
+    {
+      "id": "xp-assignable",
+      "name": "Assignable XP",
+      "group": "rewards",
+      "notes": "Paid nightly by daily missions and at lower prize tiers. Fed to a card of your choice.",
+      "cards": ["Mechanic - Assignable XP"]
+    },
+    {
+      "id": "xp-on-card",
+      "name": "On-card XP",
+      "group": "rewards",
+      "traits": ["onCard"],
+      "notes": "Earned by every card played. Travels with the card; a sale halves it.",
+      "cards": ["Table - XP Levels", "Mechanic - Channel Consequences"]
+    }
+  ],
+  "jobs": [
+    {
+      "id": "sorare",
+      "kind": "job",
+      "name": "Buy from Sorare",
+      "side": "in",
+      "order": 1,
+      "ownership": "first",
+      "cardsReturn": null,
+      "venue": "Sorare marketplace",
+      "importance": 4,
+      "modelRoom": "sorare",
+      "summary": "Bid on auctions or buy it now. First-owner cards, so they count for collection missions and earn wheel tickets when the wheel is on.",
+      "cards": [
+        "Mechanic - Auction Mechanics",
+        "Mechanic - Instant Buy",
+        "Mechanic - First Owner Requirement"
+      ],
+      "page": "http://127.0.0.1:8771/#targets"
+    },
+    {
+      "id": "craft",
+      "kind": "job",
+      "name": "Craft cards",
+      "side": "in",
+      "order": 2,
+      "ownership": "first",
+      "cardsReturn": null,
+      "venue": null,
+      "importance": 2,
+      "modelRoom": "craft",
+      "summary": "Turn Essence into cards, with clues for better odds. Crafted cards are first-owner too.",
+      "cards": ["Mechanic - Craft Cost", "Mechanic - Craft Board", "Mechanic - Clue Reveals"],
+      "page": "http://127.0.0.1:8771/#craft"
+    },
+    {
+      "id": "mbuy",
+      "kind": "job",
+      "name": "Buy · trade",
+      "side": "in",
+      "order": 3,
+      "ownership": "second",
+      "cardsReturn": null,
+      "venue": "Manager marketplace",
+      "importance": 3,
+      "modelRoom": "manager",
+      "summary": "Buy other managers' listings, make offers, or swap cards. Second-owner cards: half XP, no ticket, no mission credit.",
+      "cards": [
+        "Mechanic - Manager Sales",
+        "Mechanic - Manager Sale Currency",
+        "Mechanic - Channel Consequences"
+      ],
+      "page": "http://127.0.0.1:8771/#offers"
+    },
+    {
+      "id": "augment",
+      "kind": "job",
+      "name": "Augment your cards",
+      "side": "waystation",
+      "order": 1,
+      "ownership": null,
+      "cardsReturn": null,
+      "venue": null,
+      "importance": 4,
+      "modelRoom": "lineups",
+      "summary": "Team bonuses and assignable XP, so the cards you hold score more. Neither adds nor removes cards.",
+      "cards": [
+        "Mechanic - Score Bonuses",
+        "Mechanic - Assignable XP",
+        "Table - Collection Bonus Thresholds"
+      ],
+      "page": "http://127.0.0.1:8771/#collections"
+    },
+    {
+      "id": "hub",
+      "kind": "decision",
+      "name": "Play, sell or seal?",
+      "side": "hub",
+      "order": 1,
+      "ownership": null,
+      "cardsReturn": null,
+      "venue": null,
+      "importance": 5,
+      "modelRoom": "playsell",
+      "summary": "Idle cards depreciate. Every card goes one of three ways: play it, sell it, or seal it. A card's price peaks a few hours before the game week.",
+      "cards": ["Mechanic - List Or Play", "Observation - Season Price Phases"],
+      "page": "http://127.0.0.1:8771/#portfolio"
+    },
+    {
+      "id": "compete",
+      "kind": "job",
+      "name": "Enter competitions",
+      "side": "out",
+      "order": 1,
+      "ownership": null,
+      "cardsReturn": true,
+      "venue": null,
+      "importance": 4,
+      "modelRoom": "tourney",
+      "summary": "Tournaments (Champion, Contender, Classic, Arena), daily missions, and event boards like the Emirates NBA Cup. You choose among them and prioritize. Cards come back after the game week.",
+      "cards": [
+        "Format - Champion",
+        "Format - Contender",
+        "Mechanic - Hot Streaks",
+        "Table - Limited Leaderboard Rewards",
+        "Mechanic - Daily Missions"
+      ],
+      "page": "http://127.0.0.1:8771/#lineups"
+    },
+    {
+      "id": "vault",
+      "kind": "job",
+      "name": "Seal and unseal",
+      "side": "out",
+      "order": 2,
+      "ownership": null,
+      "cardsReturn": true,
+      "venue": null,
+      "importance": 2,
+      "modelRoom": "vault",
+      "summary": "Lock cards in the vault for a bonus on cash and Essence prizes (13% today). They come back when you unseal.",
+      "cards": ["Mechanic - Sealing", "Mechanic - Unsealing", "Mechanic - Vault Bonus Scope"],
+      "page": null
+    },
+    {
+      "id": "msell",
+      "kind": "job",
+      "name": "Sell · trade",
+      "side": "out",
+      "order": 3,
+      "ownership": null,
+      "cardsReturn": false,
+      "venue": "Manager marketplace",
+      "importance": 4,
+      "modelRoom": "manager",
+      "summary": "List cards, answer offers, or swap. The card leaves for good: 5% fee, half its XP, its team points and 30-day bonus.",
+      "cards": [
+        "Mechanic - Manager Sales",
+        "Mechanic - Listing Removes Points",
+        "Table - Market Fees",
+        "Mechanic - Resale Locks"
+      ],
+      "page": "http://127.0.0.1:8771/#portfolio"
+    }
+  ],
+  "flows": [
+    {
+      "id": "f-sorare-hub",
+      "from": "sorare",
+      "to": "hub",
+      "carries": ["cards"],
+      "ownership": "first",
+      "direction": "one",
+      "label": "first-owner",
+      "cards": []
+    },
+    {
+      "id": "f-craft-hub",
+      "from": "craft",
+      "to": "hub",
+      "carries": ["cards"],
+      "ownership": "first",
+      "direction": "one",
+      "label": "first-owner",
+      "cards": []
+    },
+    {
+      "id": "f-mbuy-hub",
+      "from": "mbuy",
+      "to": "hub",
+      "carries": ["cards"],
+      "ownership": "second",
+      "direction": "one",
+      "label": "second-owner",
+      "cards": ["Mechanic - Channel Consequences"]
+    },
+    {
+      "id": "f-sorare-craft",
+      "from": "sorare",
+      "to": "craft",
+      "carries": ["essence"],
+      "ownership": null,
+      "direction": "one",
+      "label": "missions → Essence",
+      "note": "First-owner buys count toward collection missions, which pay the Essence crafting runs on.",
+      "cards": ["Mechanic - First Owner Requirement", "Mechanic - Collection Missions"]
+    },
+    {
+      "id": "f-augment-hub",
+      "from": "augment",
+      "to": "hub",
+      "carries": ["xp-assignable"],
+      "ownership": null,
+      "direction": "one",
+      "label": "team bonus · XP",
+      "cards": ["Mechanic - Score Bonuses"]
+    },
+    {
+      "id": "f-hub-compete",
+      "from": "hub",
+      "to": "compete",
+      "carries": ["cards"],
+      "ownership": null,
+      "direction": "both",
+      "label": "play",
+      "cards": []
+    },
+    {
+      "id": "f-hub-vault",
+      "from": "hub",
+      "to": "vault",
+      "carries": ["cards"],
+      "ownership": null,
+      "direction": "both",
+      "label": "seal · unseal",
+      "cards": []
+    },
+    {
+      "id": "f-hub-msell",
+      "from": "hub",
+      "to": "msell",
+      "carries": ["cards"],
+      "ownership": null,
+      "direction": "one",
+      "label": "sell",
+      "cards": []
+    },
+    {
+      "id": "f-vault-compete",
+      "from": "vault",
+      "to": "compete",
+      "carries": ["essence"],
+      "ownership": null,
+      "direction": "one",
+      "label": "vault bonus",
+      "optional": true,
+      "cards": ["Mechanic - Vault Bonus Scope"]
+    },
+    {
+      "id": "f-msell-wallet",
+      "from": "msell",
+      "to": "wallet",
+      "carries": ["cash", "eth"],
+      "ownership": null,
+      "direction": "one",
+      "label": "cash · ETH",
+      "note": "Buyer's pick of currency.",
+      "cards": ["Table - Market Fees", "Mechanic - Manager Sale Currency"]
+    },
+    {
+      "id": "f-compete-wallet-money",
+      "from": "compete",
+      "to": "wallet",
+      "carries": ["cash", "eth"],
+      "ownership": null,
+      "direction": "one",
+      "label": "cash · ETH",
+      "note": "Your pick of currency.",
+      "cards": ["Mechanic - Prize Currency Choice"]
+    },
+    {
+      "id": "f-compete-wallet-prizes",
+      "from": "compete",
+      "to": "wallet",
+      "carries": ["essence", "credits", "xp-assignable"],
+      "ownership": null,
+      "direction": "one",
+      "label": "prizes",
+      "cards": ["Table - Limited Leaderboard Rewards"]
+    },
+    {
+      "id": "f-wallet-craft",
+      "from": "wallet",
+      "to": "craft",
+      "carries": ["essence", "clues"],
+      "ownership": null,
+      "direction": "one",
+      "label": "Essence · clues",
+      "cards": ["Mechanic - Essence Spend Paths"]
+    },
+    {
+      "id": "f-wallet-mbuy",
+      "from": "wallet",
+      "to": "mbuy",
+      "carries": ["cash", "eth"],
+      "ownership": null,
+      "direction": "one",
+      "label": "cash · ETH",
+      "cards": []
+    },
+    {
+      "id": "f-wallet-sorare",
+      "from": "wallet",
+      "to": "sorare",
+      "carries": ["cash", "eth", "credits"],
+      "ownership": null,
+      "direction": "one",
+      "label": "cash · ETH · credits",
+      "cards": ["Mechanic - Credit Terms"]
+    }
+  ],
+  "phases": [
+    {
+      "id": "p1",
+      "kind": "season",
+      "name": "Wheel and tickets",
+      "window": {
+        "start": "2026-10-06",
+        "end": "2026-10-24"
+      },
+      "status": "past",
+      "priceDirection": null,
+      "rule": "The wheel inflates every auction: a second-place ticket makes bidding up worth it, and 50%-off loyalty credits with a 30-day hold flood the primary market.",
+      "jobs": ["sorare", "craft"],
+      "cards": ["Window - Early Access Wheel"],
+      "basis": "last season's pattern, recalled 2026-10-29"
+    },
+    {
+      "id": "p2",
+      "kind": "season",
+      "name": "The post-wheel dip",
+      "window": {
+        "start": "2026-10-24",
+        "end": "2026-10-29"
+      },
+      "status": "now",
+      "priceDirection": "dip",
+      "rule": "The wheel stops and it is price discovery all over again: a crash in the first days of the season. Buy the dip.",
+      "jobs": ["sorare", "mbuy"],
+      "cards": ["Observation - Season Price Phases"],
+      "basis": "last season's pattern, recalled 2026-10-29"
+    },
+    {
+      "id": "p3",
+      "kind": "season",
+      "name": "Bonus-cash inflation",
+      "window": {
+        "start": "2026-10-30",
+        "end": "2026-11-16"
+      },
+      "windowNote": "Runs while the Champion 2x hot-streak cash runs; the market stays hot 10–15 days as streak wins get flexed.",
+      "status": "next",
+      "priceDirection": "inflate",
+      "rule": "2x cash plus completed price discovery fires the market back up even with the credits spent. Know when to play, sell or seal; team bonuses matter most now.",
+      "jobs": ["hub", "msell", "vault", "compete", "augment"],
+      "cards": ["Observation - Season Price Phases"],
+      "basis": "last season's pattern, recalled 2026-10-29"
+    },
+    {
+      "id": "p4",
+      "kind": "season",
+      "name": "The real crash",
+      "window": {
+        "start": "2026-11-16",
+        "end": null
+      },
+      "windowNote": "Starts when the 2x promotion ends; the market takes it on the chin.",
+      "status": "later",
+      "priceDirection": "crash",
+      "rule": "By now you need to have won cash, or divested enough to catch the bounce.",
+      "jobs": ["msell", "sorare", "mbuy"],
+      "cards": ["Observation - Season Price Phases"],
+      "basis": "last season's pattern; the 2x end date is published"
+    },
+    {
+      "id": "p5",
+      "kind": "season",
+      "name": "The flatline",
+      "window": {
+        "start": null,
+        "end": null
+      },
+      "windowNote": "Rest of the season after the crash.",
+      "status": "later",
+      "priceDirection": "drift",
+      "rule": "Prices drift down while key cards spike. Can you win more than you'd sell for?",
+      "jobs": ["hub", "compete", "msell"],
+      "cards": ["Observation - Season Price Phases"],
+      "basis": "last season's pattern, recalled 2026-10-29"
+    },
+    {
+      "id": "e1",
+      "kind": "event",
+      "name": "Launch boost",
+      "window": {
+        "start": "2026-10-20",
+        "end": "2026-11-16"
+      },
+      "windowNote": "In-product countdown read 17 days 7 hours on the evening of 2026-10-29.",
+      "status": "now",
+      "priceDirection": null,
+      "rule": "Champion hot streak prizes are doubled and the first two targets lowered. A full climb takes five clean weeks.",
+      "jobs": ["compete", "augment"],
+      "cards": ["Window - Launch Boost"],
+      "basis": "published"
+    },
+    {
+      "id": "e2",
+      "kind": "event",
+      "name": "Emirates NBA Cup board",
+      "window": {
+        "start": "2026-10-30",
+        "end": "2026-11-17"
+      },
+      "status": "next",
+      "priceDirection": null,
+      "rule": "Five steps, 4 lives each: 200 / 400 / 1,000 Essence, 50 credits, then a share of $10K. Classic cards carry the first steps.",
+      "jobs": ["compete", "craft"],
+      "cards": ["Window - Emirates NBA Cup Board"],
+      "basis": "published"
+    },
+    {
+      "id": "e3",
+      "kind": "event",
+      "name": "The wheel returns",
+      "window": {
+        "start": "2026-11-27",
+        "end": "2026-12-25"
+      },
+      "windowNote": "Black Friday to Christmas by past pattern. Surprise drops are the norm: a variable-reinforcement machine.",
+      "status": "later",
+      "priceDirection": "drift",
+      "rule": "The wheel returns to juice the market and prices reach surprising parity: value drops only a little while all the tournament utility stays. Special-edition events (a game only for holiday-edition cards) run alongside and make those versions sell while regular ones don't.",
+      "jobs": ["sorare", "craft"],
+      "cards": ["Observation - Season Price Phases"],
+      "basis": "past pattern"
+    }
+  ],
+  "cells": [
+    {
+      "job": "sorare",
+      "dimension": "better",
+      "applies": true,
+      "means": "The right call on every card: bid, buy it now, or let it go.",
+      "gap": "The bid-or-buy-it-now call isn't modelled."
+    },
+    {
+      "job": "sorare",
+      "dimension": "cheaper",
+      "applies": true,
+      "means": "Never overpay; use credits where they count.",
+      "gap": null
+    },
+    {
+      "job": "sorare",
+      "dimension": "faster",
+      "applies": true,
+      "means": "Never sit and watch an auction.",
+      "gap": null
+    },
+    {
+      "job": "craft",
+      "dimension": "better",
+      "applies": true,
+      "means": "Craft the cards worth the most to you; hit the mission rungs that pay.",
+      "gap": null
+    },
+    {
+      "job": "craft",
+      "dimension": "cheaper",
+      "applies": true,
+      "means": "Spend Essence while it's worth the most (early in the season).",
+      "gap": "Essence's dollar value isn't tracked live."
+    },
+    {
+      "job": "craft",
+      "dimension": "faster",
+      "applies": true,
+      "means": "From Essence to card on one screen.",
+      "gap": null
+    },
+    {
+      "job": "mbuy",
+      "dimension": "better",
+      "applies": true,
+      "means": "Buy the mispriced listing; push the sellers worth pushing.",
+      "gap": null
+    },
+    {
+      "job": "mbuy",
+      "dimension": "cheaper",
+      "applies": true,
+      "means": "Buy the dip, and price in what a secondhand card loses: half XP, no ticket, no first-owner status.",
+      "gap": "Dips and secondhand losses aren't tracked."
+    },
+    {
+      "job": "mbuy",
+      "dimension": "faster",
+      "applies": true,
+      "means": "Offers composed and sent in one pass.",
+      "gap": null
+    },
+    {
+      "job": "augment",
+      "dimension": "better",
+      "applies": true,
+      "means": "XP on the cards that will play; team bonuses where they lift the percentage.",
+      "gap": "Nothing prototyped. Done by hand before each big weekend."
+    },
+    {
+      "job": "augment",
+      "dimension": "cheaper",
+      "applies": true,
+      "means": "Don't feed XP to a card you might sell (a sale halves it).",
+      "gap": "Nothing."
+    },
+    {
+      "job": "augment",
+      "dimension": "faster",
+      "applies": true,
+      "means": "One place to assign XP and see every team bonus.",
+      "gap": "Nothing prototyped."
+    },
+    {
+      "job": "hub",
+      "dimension": "better",
+      "applies": true,
+      "means": "Know whether a card earns more in your lineups, in a buyer's hands, or in the vault.",
+      "gap": "Only cost basis and mark exist; no expected-score or vault comparison."
+    },
+    {
+      "job": "hub",
+      "dimension": "cheaper",
+      "applies": true,
+      "means": "Count what a sale gives up, and what you'd pay to buy it back.",
+      "gap": "Nothing."
+    },
+    {
+      "job": "hub",
+      "dimension": "faster",
+      "applies": true,
+      "means": "An answer ready the moment prices spike.",
+      "gap": "No spike alert; the Trader is read on demand."
+    },
+    {
+      "job": "compete",
+      "dimension": "better",
+      "applies": true,
+      "means": "Higher scores across five lineups: streak floors, contrarian ceilings, XP farms. Pick the right boards.",
+      "gap": "The portfolio builder ranks and plans; it needs work and doesn't yet weigh selling against playing."
+    },
+    {
+      "job": "compete",
+      "dimension": "cheaper",
+      "applies": true,
+      "means": "Win more than the cards would sell for, or the bankroll burns.",
+      "gap": "Nothing."
+    },
+    {
+      "job": "compete",
+      "dimension": "faster",
+      "applies": true,
+      "means": "Every lineup in before lock, including the Classic XP-farm lineups you currently skip.",
+      "gap": "The builder drafts the lineups; submission and the Classic farm lineups are still by hand."
+    },
+    {
+      "job": "vault",
+      "dimension": "better",
+      "applies": true,
+      "means": "Seal high-value cards to lift the bonus; unseal when one spikes, then sell it or reseal it higher.",
+      "gap": "Nothing."
+    },
+    {
+      "job": "vault",
+      "dimension": "cheaper",
+      "applies": true,
+      "means": "Don't lock up a card your lineups need.",
+      "gap": "Nothing."
+    },
+    {
+      "job": "vault",
+      "dimension": "faster",
+      "applies": true,
+      "means": "Know the moment a sealed card's value jumps.",
+      "gap": "Nothing."
+    },
+    {
+      "job": "msell",
+      "dimension": "better",
+      "applies": true,
+      "means": "Sell near the peak: hours before the game week, or into bonus-cash inflation.",
+      "gap": "Price history and the credit-freeze date exist; no peak signal."
+    },
+    {
+      "job": "msell",
+      "dimension": "cheaper",
+      "applies": true,
+      "means": "Count the 5% fee and the XP and team points a sale gives up.",
+      "gap": "Not counted anywhere."
+    },
+    {
+      "job": "msell",
+      "dimension": "faster",
+      "applies": true,
+      "means": "Listings and offer replies in one pass.",
+      "gap": "Selling is by hand."
+    }
+  ],
+  "features": [
+    {
+      "id": "bidder",
+      "name": "The bidder (watch, arm, journal)",
+      "status": "shipped",
+      "evidence": "inferred",
+      "dueBy": null,
+      "where": ["v2:bidder/", "v2:bin/sorare arm", "v2:bidder/armmode.py"],
+      "serves": [
+        {
+          "job": "sorare",
+          "dimension": "faster",
+          "coverage": "full"
+        },
+        {
+          "job": "sorare",
+          "dimension": "better",
+          "coverage": "partial"
+        }
+      ],
+      "note": "Wins or tickets auctions from the bid sheet. Doesn't decide bid vs. buy it now. TICKET mode bids to place second for wheel spins.",
+      "issues": [],
+      "page": "http://127.0.0.1:8771/#targets",
+      "how": {
+        "faster": "The watch sees a new floor auction within about a second of launch, arms the bid from the sheet and journals the result. You never sit on a closing auction.",
+        "better": "Bids to win, or to place second for a ticket when the wheel is on. The bid-or-buy-it-now call is still yours."
+      }
+    },
+    {
+      "id": "bid-pricing",
+      "name": "Odds and bid ladder",
+      "status": "shipped",
+      "evidence": "inferred",
+      "dueBy": null,
+      "where": [
+        "v2:model/odds.py",
+        "v2:model/ladder.py",
+        "v2:jobs/bidsheet.py",
+        "v2:model/ticketcurve.py"
+      ],
+      "serves": [
+        {
+          "job": "sorare",
+          "dimension": "cheaper",
+          "coverage": "full"
+        }
+      ],
+      "note": "Prices every bid at auction marks; the Bidding Manager in plans/JOBS.md.",
+      "issues": [],
+      "page": "http://127.0.0.1:8771/#targets",
+      "how": {
+        "cheaper": "Every bid is priced off recent clears with odds and a ladder, so you pay the market's number, not the room's heat."
+      }
+    },
+    {
+      "id": "buysheet",
+      "name": "Buysheet (who we want and why)",
+      "status": "shipped",
+      "evidence": "inferred",
+      "dueBy": null,
+      "where": ["v2:jobs/buysheet.py", "v2:jobs/pools.py", "v2:jobs/missions.json"],
+      "serves": [
+        {
+          "job": "sorare",
+          "dimension": "better",
+          "coverage": "partial"
+        },
+        {
+          "job": "craft",
+          "dimension": "better",
+          "coverage": "partial"
+        }
+      ],
+      "note": "Targets missing players by mission rung at auction marks. The Portfolio Manager in plans/JOBS.md.",
+      "issues": [],
+      "page": "http://127.0.0.1:8771/#collections",
+      "how": {
+        "better": "Lists who to want and why, from the mission rungs and what you already own, before price enters the question."
+      }
+    },
+    {
+      "id": "craft-page",
+      "name": "Craft board and craft page",
+      "status": "shipped",
+      "evidence": "inferred",
+      "dueBy": null,
+      "where": ["v2:jobs/craftboard.py", "v2:viewer/craft.py", "v2:model/craft.py"],
+      "serves": [
+        {
+          "job": "craft",
+          "dimension": "better",
+          "coverage": "full"
+        },
+        {
+          "job": "craft",
+          "dimension": "faster",
+          "coverage": "full"
+        }
+      ],
+      "note": "Sufficient (Danvers, 2026-10-29); smoother would be nice.",
+      "issues": [],
+      "page": "http://127.0.0.1:8771/#craft",
+      "how": {
+        "better": "The craft board shows which board and which reveal get you the most, with the mission ladders beside it.",
+        "faster": "Essence to card on one screen, instead of reading ten face-down cards by hand."
+      }
+    },
+    {
+      "id": "craft-ev",
+      "name": "Craft EV and clue pacing",
+      "status": "shipped",
+      "evidence": "inferred",
+      "dueBy": null,
+      "where": [
+        "v1:analysis/craft_ev.py",
+        "v1:analysis/clue_pace.py",
+        "v1:analysis/clue_budget.py"
+      ],
+      "serves": [
+        {
+          "job": "craft",
+          "dimension": "cheaper",
+          "coverage": "partial"
+        }
+      ],
+      "note": "Scripts, not a live view. Essence's falling dollar value is in the library's model, not computed per day.",
+      "issues": [],
+      "page": null,
+      "how": {
+        "cheaper": "Expected value per craft and a clue budget, so Essence and clues go where the odds pay. Scripts, run by hand."
+      }
+    },
+    {
+      "id": "offerer",
+      "name": "The offerer (gap index, seller profiles, buy offers)",
+      "status": "shipped",
+      "evidence": "inferred",
+      "dueBy": null,
+      "where": [
+        "v2:offerer/",
+        "v2:jobs/gapindex.py",
+        "v2:jobs/sellers.py",
+        "v2:jobs/offersheet.py",
+        "v2:viewer/market.py"
+      ],
+      "serves": [
+        {
+          "job": "mbuy",
+          "dimension": "better",
+          "coverage": "full"
+        },
+        {
+          "job": "mbuy",
+          "dimension": "faster",
+          "coverage": "full"
+        }
+      ],
+      "note": "Buy side only.",
+      "issues": [],
+      "page": "http://127.0.0.1:8771/#offers",
+      "how": {
+        "better": "The gap index and seller profiles find mispriced listings and the sellers who actually move.",
+        "faster": "Buy offers are composed for you across a seller's whole lot in one pass."
+      }
+    },
+    {
+      "id": "trader-portfolio",
+      "name": "Trader console: Portfolio screen",
+      "status": "shipped",
+      "evidence": "inferred",
+      "dueBy": null,
+      "where": ["v1:trader/"],
+      "serves": [
+        {
+          "job": "hub",
+          "dimension": "better",
+          "coverage": "partial"
+        },
+        {
+          "job": "msell",
+          "dimension": "better",
+          "coverage": "partial"
+        }
+      ],
+      "note": "Every card held with cost basis, mark (mean of last five auction clears), unrealised P/L and the credit-freeze date. Port 8770. The prior session scored this decision as 'nothing yet'; this is the correction.",
+      "issues": [],
+      "page": "http://127.0.0.1:8770/",
+      "how": {
+        "better": "Every card you hold with cost basis, a mark from the last five auction clears, unrealised P/L and the date it can be sold."
+      }
+    },
+    {
+      "id": "trader-market",
+      "name": "Trader console: Market screen and timing study",
+      "status": "shipped",
+      "evidence": "inferred",
+      "dueBy": null,
+      "where": ["v1:trader/", "v1:analysis/timing.py"],
+      "serves": [
+        {
+          "job": "sorare",
+          "dimension": "better",
+          "coverage": "partial"
+        }
+      ],
+      "note": "Live auction quote board joined to holdings and mark; 'below mark' only inside the last hour. Partly superseded by the v2 viewer.",
+      "issues": [],
+      "page": "http://127.0.0.1:8770/",
+      "how": {
+        "better": "A live quote board of every auction, joined to what you hold and to the mark, with 'below mark' shown only inside the last hour so it means something."
+      }
+    },
+    {
+      "id": "price-history",
+      "name": "Price history and clears",
+      "status": "shipped",
+      "evidence": "inferred",
+      "dueBy": null,
+      "where": [
+        "v2:viewer/prices.py",
+        "v2:fetch/clears.py",
+        "v2:fetch/history.py",
+        "v2:model/mark.py"
+      ],
+      "serves": [
+        {
+          "job": "msell",
+          "dimension": "better",
+          "coverage": "partial"
+        }
+      ],
+      "note": "History only; no trend or spike signal.",
+      "issues": [],
+      "page": "http://127.0.0.1:8771/#portfolio",
+      "how": {
+        "better": "Clears and listing history per player, so a sale is priced against what actually settled, not the ask."
+      }
+    },
+    {
+      "id": "eth-usd",
+      "name": "ETH/USD conversion",
+      "status": "shipped",
+      "evidence": "inferred",
+      "dueBy": null,
+      "where": ["v2:model/ethusd.py"],
+      "serves": [],
+      "note": "Used only to price bids. Nothing tracks ETH held against the cash goal. Listed so the gap is visible.",
+      "issues": [],
+      "page": null,
+      "how": {}
+    },
+    {
+      "id": "sell-or-play-ev",
+      "name": "Sell or play: expected value of the next two Game Weeks against sale value",
+      "status": "proposed",
+      "evidence": "inferred",
+      "dueBy": "p3",
+      "where": [],
+      "serves": [
+        {
+          "job": "hub",
+          "dimension": "better",
+          "coverage": "full"
+        },
+        {
+          "job": "hub",
+          "dimension": "cheaper",
+          "coverage": "partial"
+        },
+        {
+          "job": "msell",
+          "dimension": "better",
+          "coverage": "partial"
+        }
+      ],
+      "note": "Per card: EV of playing GW+1 and GW+2 from Basketball Monster projections (already fetched by jobs/gwproj.py) against the best guess of sale value now, adjusted for star changes (Dybantsa will re-rate), playing circumstance (Schroder loses his starting job after this weekend), and the out-of-season residual, which is near zero (a used Cade Cunningham was $20 a year ago, $6 today). Named by Danvers on 2026-10-29 as the biggest priority: 'we have what we need to figure it out'.",
+      "issues": [],
+      "page": null,
+      "how": {
+        "better": "For each card, what the next two Game Weeks are expected to earn from the projections, next to what it would sell for today. Star re-ratings, role changes and the near-zero out-of-season value are priced in.",
+        "cheaper": "Makes the cost of keeping a card visible as the sale you didn't make."
+      }
+    },
+    {
+      "id": "portfolio-trends",
+      "name": "Portfolio with price trends",
+      "status": "proposed",
+      "evidence": "inferred",
+      "dueBy": "p3",
+      "where": [],
+      "serves": [
+        {
+          "job": "hub",
+          "dimension": "better",
+          "coverage": "full"
+        },
+        {
+          "job": "hub",
+          "dimension": "faster",
+          "coverage": "full"
+        },
+        {
+          "job": "msell",
+          "dimension": "better",
+          "coverage": "full"
+        },
+        {
+          "job": "msell",
+          "dimension": "faster",
+          "coverage": "partial"
+        },
+        {
+          "job": "vault",
+          "dimension": "better",
+          "coverage": "full"
+        },
+        {
+          "job": "vault",
+          "dimension": "faster",
+          "coverage": "full"
+        },
+        {
+          "job": "mbuy",
+          "dimension": "cheaper",
+          "coverage": "partial"
+        }
+      ],
+      "note": "Every card you own, its value now against its normal, flagged when it spikes, so you can flip it, or unseal it and sell or reseal it higher. Builds on trader-portfolio and price-history. Sealed cards matter here: how soon a sealed card can be unsealed if it pops. Vault tracking itself is low priority but likely easy.",
+      "issues": [],
+      "page": null,
+      "how": {
+        "better": "Each card you own against its own normal price, flagged when it spikes. Sealed cards included, with the date each can be unsealed.",
+        "faster": "The spike shows up the moment it happens, instead of being found by browsing player pages.",
+        "cheaper": "Shows which cards are sitting under their normal, so the dip is bought on purpose."
+      }
+    },
+    {
+      "id": "sale-cost",
+      "name": "What a sale gives up",
+      "status": "proposed",
+      "evidence": "inferred",
+      "dueBy": "p3",
+      "where": [],
+      "serves": [
+        {
+          "job": "hub",
+          "dimension": "cheaper",
+          "coverage": "full"
+        },
+        {
+          "job": "msell",
+          "dimension": "cheaper",
+          "coverage": "full"
+        },
+        {
+          "job": "augment",
+          "dimension": "cheaper",
+          "coverage": "partial"
+        }
+      ],
+      "note": "Per card: 5% fee, halved XP, team points lost, 30-day bonus lost, and the buy-back price.",
+      "issues": [],
+      "page": null,
+      "how": {
+        "cheaper": "The full bill of a sale on one line: the 5% fee, half the XP, the team points and 30-day bonus lost, and the price to buy it back."
+      }
+    },
+    {
+      "id": "lineup-portfolio",
+      "name": "Five-lineup portfolio builder",
+      "status": "partial",
+      "evidence": "inferred",
+      "dueBy": null,
+      "where": [
+        "v2:jobs/gwlineups.py",
+        "v2:jobs/gwproj.py",
+        "v2:model/gwsim.py",
+        "v2:model/gwlineup.py",
+        "v2:viewer/lineups.py"
+      ],
+      "serves": [
+        {
+          "job": "compete",
+          "dimension": "better",
+          "coverage": "partial"
+        },
+        {
+          "job": "compete",
+          "dimension": "faster",
+          "coverage": "partial"
+        }
+      ],
+      "note": "Ranker, Monte Carlo week, star knapsack and a portfolio planner (a streak rung per competition, up to ten lineups) over Basketball Monster exports. 'Needs work but helpful and pretty cool' (Danvers, 2026-10-29). Previously scored open by mistake.",
+      "issues": [],
+      "page": "http://127.0.0.1:8771/#lineups",
+      "how": {
+        "better": "Projects every player from the Basketball Monster export, simulates the week, and plans a streak rung per competition across up to ten lineups.",
+        "faster": "Drafts the lineups under the star cap. You check and submit."
+      }
+    },
+    {
+      "id": "augment-desk",
+      "name": "XP and team-bonus desk",
+      "status": "proposed",
+      "evidence": "inferred",
+      "dueBy": "p3",
+      "where": [],
+      "serves": [
+        {
+          "job": "augment",
+          "dimension": "better",
+          "coverage": "full"
+        },
+        {
+          "job": "augment",
+          "dimension": "faster",
+          "coverage": "full"
+        }
+      ],
+      "note": "Where assignable XP should go and which team collections are one add from the next bonus step. Today this is done by hand: two days building a team bonus to 5% for the high-leverage streak weekend, and watching for Giannis' XP boost window. Nothing prototyped yet.",
+      "issues": [],
+      "page": null,
+      "how": {
+        "better": "Where each assignable XP point should go, by who plays next, and which team collections are one card from the next bonus step.",
+        "faster": "One screen for XP and team bonuses, instead of the two-day build by hand before a big weekend."
+      }
+    },
+    {
+      "id": "bankroll-scoreboard",
+      "name": "Bankroll scoreboard",
+      "status": "proposed",
+      "evidence": "inferred",
+      "dueBy": "p4",
+      "where": [],
+      "serves": [
+        {
+          "job": "compete",
+          "dimension": "cheaper",
+          "coverage": "partial"
+        }
+      ],
+      "note": "Cash in, cash out, ETH held at today's price, against the season-start bankroll. The goal itself, measured. Doesn't belong to one job; attached to compete:cheaper because that's where 'win more than you'd sell for' is judged.",
+      "issues": [],
+      "page": null,
+      "how": {
+        "cheaper": "Cash in, cash out and ETH at today's price against the season-start bankroll, so 'win more than you'd sell for' is judged against the real number."
+      }
+    },
+    {
+      "id": "essence-blitz",
+      "name": "Collection blitz: scale the collection for mission Essence, then divest",
+      "status": "partial",
+      "evidence": "inferred",
+      "dueBy": "p2",
+      "where": ["v2:jobs/collectsheet.py", "v2:viewer (Collect · Collections)"],
+      "serves": [
+        {
+          "job": "sorare",
+          "dimension": "better",
+          "coverage": "partial"
+        },
+        {
+          "job": "craft",
+          "dimension": "better",
+          "coverage": "partial"
+        }
+      ],
+      "note": "Buy first-owner cards in the dip for missions and team bonuses, harvest Essence, craft, then divest the first-bought cards without losing much. The collecting pages exist; the blitz scaling is in progress with a Sonnet agent (2026-10-29).",
+      "issues": [],
+      "page": "http://127.0.0.1:8771/#collections",
+      "how": {
+        "better": "Costs every mission at auction marks and shows which first-owner cards climb a rung. Scaling the blitz is in progress."
+      }
+    }
+  ],
+  "priority": {
+    "formula": "priority = value × urgency × gap; value = Σ importance(job) × weight(dimension) over served cells; urgency = 1 + nextBoost if dueBy is `next`, 0 if `past`; gap = share of served cells still open",
+    "weights": {
+      "better": 1,
+      "cheaper": 1,
+      "faster": 1
+    },
+    "nextBoost": 1,
+    "importanceScale": "1 (nice) to 5 (the goal depends on it)",
+    "inputsMissing": [
+      "evidence: audited on every feature",
+      "exact local time zone of the launch-boost countdown"
+    ],
+    "importanceSource": "Set by Claude from Danvers' 2026-10-29 note (sell-vs-play biggest; augment wanted; buying machinery the durable long run; crafting sufficient; vault can live without). Owner to adjust.",
+    "urgencyNote": "Urgency reads the phase's `status` (past / now / next / later), which the owner moves by hand when the season departs from the story. Dates are display only."
+  }
+}

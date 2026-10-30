@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Sorare — the dynamic system model</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --ink: #0b1016; --ink-2: #111a22; --ink-3: #18242f; --line: #233340; --ghost: #34485a;
+    --text: #dbe7ef; --muted: #7d8fa0; --teal: #4fd1c5; --amber: #f0b45a; --violet: #c4a1ff;
+    --green: #7ee081; --pink: #ff8fb1; --blue: #6ea8ff; --hot: #ff6a3d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text);
+    font: 14px/1.45 ui-sans-serif, -apple-system, "Inter", "Segoe UI", system-ui, sans-serif; }
+  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+  header { display: flex; align-items: center; gap: 18px; padding: 14px 22px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #0f171f, var(--ink)); }
+  header h1 { margin: 0; font: 600 17px/1.2 "Iowan Old Style", Georgia, serif; }
+  header .sub { color: var(--muted); font-size: 12.5px; }
+  header .goal { margin-left: auto; padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(240,180,90,.5);
+    color: var(--amber); font-size: 13px; background: rgba(240,180,90,.06); }
+  main { display: grid; grid-template-columns: 1fr 380px; min-height: 0; }
+  .stage { position: relative; min-height: 0; overflow: hidden; display: flex; flex-direction: column;
+    background: radial-gradient(1400px 900px at 50% 50%, #0f1d25 0%, var(--ink) 75%); }
+  svg#map { width: 100%; flex: 1; min-height: 0; display: block; }
+  .time { padding: 10px 18px 6px; border-bottom: 1px solid var(--line); background: rgba(11,16,22,.6); }
+  .time .row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+  .time .lbl { width: 64px; flex: none; font-size: 10.5px; font-weight: 800; letter-spacing: 1.8px; color: var(--muted); }
+  .ph { position: relative; flex: 1; cursor: pointer; border: 1px solid var(--line); background: var(--ink-2); border-radius: 8px; padding: 5px 10px; font-size: 12px; }
+  .ph b { font-size: 12.5px; } .ph span { color: var(--muted); margin-left: 6px; font-size: 11.5px; }
+  .ph:hover { border-color: var(--ghost); }
+  .ph.sel { border-color: var(--amber); background: #2a1e0c; } .ph.sel b { color: var(--amber); }
+  .ph.ev { flex: none; border-style: dashed; }
+  .ph .now { position: absolute; top: -7px; right: 8px; font-size: 9.5px; font-weight: 800; color: #0b1016; background: var(--amber); border-radius: 999px; padding: 0 6px; }
+  .time .note { min-height: 20px; font-size: 12.5px; color: var(--muted); padding: 2px 0 2px 70px; }
+  .time .note b { color: var(--amber); }
+  svg.phased .node:not(.ph-on) { opacity: .22; }
+  svg.phased .edge:not(.ph-on) { opacity: .1; }
+  aside { border-left: 1px solid var(--line); background: var(--ink-2); overflow-y: auto; padding: 20px 22px 40px; }
+
+  /* regions */
+  .region rect { stroke-width: 1.2; }
+  .region .rl { font-size: 13px; font-weight: 800; letter-spacing: 3px; }
+  .region .rs { font-size: 12px; fill: var(--muted); }
+
+  /* edges */
+  .edge path { fill: none; stroke-width: 2.4; transition: opacity .2s; }
+  .edge.dashed path { stroke-dasharray: 6 6; }
+  .edge .pill rect { fill: #0d151c; stroke-width: 1.1; }
+  .edge .pill text { font-size: 11.5px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+  .toll rect { fill: #2a1210; stroke: var(--hot); stroke-width: 1; }
+  .toll text { fill: #ffb199; font-size: 10.5px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+  .edge, .node { transition: opacity .2s; }
+  svg.focus .edge:not(.hi) { opacity: .07; }
+  svg.focus .node:not(.hi) { opacity: .28; }
+  svg.res .edge:not(.on) { opacity: .07; }
+
+  /* nodes */
+  .node { cursor: pointer; }
+  .node.stock { cursor: default; }
+  .node text { pointer-events: none; }
+  .node .name { fill: var(--text); font-size: 13.5px; font-weight: 700; text-anchor: middle; }
+  .node .subt { fill: var(--muted); font-size: 11.5px; text-anchor: middle; }
+  .node:not(.stock):hover .body { stroke-width: 3.2; filter: brightness(1.3); }
+  .heart .body { filter: drop-shadow(0 0 14px rgba(240,180,90,.55)); }
+  .heart-ring { fill: none; stroke: var(--amber); stroke-width: 2; animation: breathe 2.4s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { stroke-opacity: .15; } 50% { stroke-opacity: .75; } }
+  .served-ring { fill: none; stroke-width: 4; }
+  .served-tag rect { stroke-width: 1; }
+  .served-tag text { font-size: 10.5px; font-weight: 800; letter-spacing: 1px; text-anchor: middle; dominant-baseline: central; }
+  .offered .body { stroke-dasharray: 4 5; }
+
+  /* panel */
+  .kicker { color: var(--amber); font-size: 11.5px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; }
+  aside h2 { font: 600 21px/1.25 "Iowan Old Style", Georgia, serif; margin: 8px 0 8px; }
+  aside h3 { font-size: 11.5px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); margin: 22px 0 10px; }
+  .why { color: var(--muted); margin: 0 0 6px; }
+  .legend { display: grid; grid-template-columns: 34px 1fr; gap: 8px 10px; align-items: center; font-size: 12.5px; }
+  .legend svg { width: 34px; height: 26px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { border: 1px solid var(--line); background: var(--ink); color: var(--text); border-radius: 999px;
+    padding: 5px 11px; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .chip .sw { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+  .chip.on { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); }
+  .toggle { display: flex; gap: 10px; align-items: center; margin-top: 4px; font-size: 13px; cursor: pointer; }
+  .toggle input { accent-color: var(--amber); }
+  .callout { padding: 11px 13px; border-radius: 10px; background: rgba(255,106,61,.08); border: 1px solid rgba(255,106,61,.35);
+    margin-top: 12px; font-size: 12.5px; }
+  .jobs .grp { color: var(--muted); font-size: 11px; letter-spacing: 1.3px; text-transform: uppercase; margin: 12px 0 4px; }
+  .jobs .row { display: flex; align-items: center; gap: 9px; padding: 6px 6px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .jobs .row svg { width: 22px; height: 18px; flex: none; }
+  .jobs .row:hover { background: var(--ink-3); }
+  .jobs .row .s { margin-left: auto; font-size: 10.5px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
+  .foot { color: var(--muted); font-size: 11.5px; margin-top: 22px; border-top: 1px solid var(--line); padding-top: 12px; }
+
+  /* rooms */
+  .room-scrim { position: absolute; inset: 0; background: rgba(5,8,11,.55); }
+  .room { position: absolute; inset: 22px; border-radius: 16px; background: rgba(9,14,19,.97);
+    border: 1px solid rgba(79,209,197,.35); box-shadow: 0 30px 80px rgba(0,0,0,.6), inset 0 0 60px rgba(79,209,197,.05);
+    padding: 26px 30px 34px; overflow-y: auto; animation: grow .42s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes grow { from { transform: scale(.05); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .room .close { position: absolute; top: 16px; right: 18px; border: 1px solid var(--line); background: var(--ink-3);
+    color: var(--text); padding: 8px 14px; border-radius: 8px; cursor: pointer; font: inherit; }
+  .room .kind { font-size: 11.5px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; }
+  .room h2 { font: 600 28px/1.2 "Iowan Old Style", Georgia, serif; margin: 6px 0 16px; }
+  .room h4 { font-size: 11.5px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); margin: 26px 0 10px; }
+  .stmt { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .box { background: var(--ink-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .box small { display: block; color: var(--muted); font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 4px; }
+  .scale { display: grid; grid-template-columns: 1fr 60px 1fr; gap: 0; align-items: stretch; }
+  .pan { border-radius: 12px; padding: 14px 16px; }
+  .pan.play { background: rgba(79,209,197,.07); border: 1px solid rgba(79,209,197,.35); }
+  .pan.sell { background: rgba(240,180,90,.07); border: 1px solid rgba(240,180,90,.35); }
+  .pan b { display: block; font-size: 15px; margin-bottom: 8px; }
+  .pan ul { margin: 0; padding-left: 18px; } .pan li { margin-bottom: 6px; }
+  .fulcrum { display: grid; place-items: center; color: var(--muted); font: 600 22px Georgia, serif; }
+  table.t { border-collapse: collapse; width: 100%; font-size: 13px; }
+  table.t th { text-align: left; color: var(--muted); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; font-weight: 600;
+    padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  table.t td { padding: 8px 10px; border-bottom: 1px solid #1a2631; }
+  .yes { color: var(--teal); } .no { color: #ff9b7a; } .unk { color: var(--muted); }
+  .tree { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .tree .fmt { background: var(--ink-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .tree .fmt b { font-size: 15px; } .tree .fmt .m { color: var(--muted); font-size: 12px; }
+  .tracks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .track { border-radius: 8px; padding: 9px 11px; font-size: 12.5px; border: 1px solid var(--line); background: var(--ink); }
+  .track b { display: block; font-size: 13px; margin-bottom: 2px; }
+  .ladder { display: flex; align-items: flex-end; gap: 10px; height: 170px; margin-top: 6px; }
+  .rung { flex: 1; border-radius: 8px 8px 0 0; background: linear-gradient(180deg, rgba(240,180,90,.35), rgba(240,180,90,.08));
+    border: 1px solid rgba(240,180,90,.4); border-bottom: 0; position: relative; display: flex; flex-direction: column;
+    justify-content: flex-start; align-items: center; padding-top: 8px; font-size: 12.5px; }
+  .rung b { font-size: 15px; color: var(--amber); }
+  .rung.here { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(79,209,197,.5); }
+  .rung .you { position: absolute; top: -26px; font-size: 11px; color: var(--teal); font-weight: 700; white-space: nowrap; }
+  .slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .slot { border-radius: 10px; padding: 11px 12px; border: 1px solid var(--line); background: var(--ink-2); font-size: 12.5px; min-height: 92px; }
+  .slot b { display: block; font-size: 13px; margin-bottom: 4px; }
+  .slot.open { border-style: dashed; color: var(--muted); }
+  .backbone { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr); gap: 14px; }
+  .step .num { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--teal); color: var(--teal); display: grid;
+    place-items: center; font-weight: 700; font-size: 12.5px; margin-bottom: 8px; }
+  .step.gap .num { border-color: var(--hot); color: var(--hot); }
+  .step .t { font-weight: 600; margin-bottom: 8px; min-height: 40px; }
+  .code { display: block; font: 12px ui-monospace, Menlo, monospace; padding: 4px 8px; border-radius: 6px; margin-bottom: 6px;
+    background: rgba(79,209,197,.1); border: 1px solid rgba(79,209,197,.3); color: #9fe7df; }
+  .code.gap { background: transparent; border: 1px dashed rgba(255,106,61,.6); color: #ff9b7a; font-family: inherit; }
+  .rp { display: inline-block; padding: 3px 10px; border-radius: 999px; border: 1px solid; font-size: 12.5px; font-weight: 600; margin: 0 6px 6px 0; }
+  .note { color: var(--muted); font-size: 12.5px; margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Sorare — the dynamic system model</h1>
+      <div class="sub">The dynamic system model · stocks, jobs, decisions and time · in-season Limited · <a href="roadmap.html" style="color:#4fd1c5">the simple jobs map →</a></div>
+    </div>
+    <div class="goal">Goal: leave the season with at least the bankroll I brought</div>
+  </header>
+  <main>
+    <div class="stage" id="stage"><div class="time" id="time"></div><svg id="map" viewBox="0 0 1500 920" preserveAspectRatio="xMidYMid meet"><defs id="defs"></defs>
+      <g id="layer-regions"></g><g id="layer-edges"></g><g id="layer-nodes"></g></svg></div>
+    <aside id="panel"></aside>
+  </main>
+</div>
+<script>
+// ---------------------------------------------------------------------------
+// Grammar: STOCKS are what you hold. JOBS turn one stock into another.
+// A DECISION is a valve where a stock can go two ways. TOLLS sit on crossings.
+// ---------------------------------------------------------------------------
+const RES = {
+  cash: { label: "Cash", hex: "#f0b45a" },
+  eth: { label: "ETH", hex: "#c9d3dd" },
+  cards: { label: "Cards", hex: "#4fd1c5" },
+  essence: { label: "Essence", hex: "#c4a1ff" },
+  xp: { label: "XP", hex: "#7ee081" },
+  perks: { label: "Clues · credits · tickets", hex: "#ff8fb1" },
+  bonus: { label: "Team bonus", hex: "#6ea8ff" },
+  vault: { label: "Vault bonus", hex: "#ffd479" },
+};
+
+const REGIONS = [
+  { id: "economy", x: 20, w: 618, label: "ECONOMY", sub: "money and in-game currency", stroke: "rgba(240,180,90,.28)", fill: "rgba(240,180,90,.035)", col: "#f0b45a" },
+  { id: "pieces", x: 662, w: 300, label: "GAME PIECES", sub: "your collection", stroke: "rgba(79,209,197,.3)", fill: "rgba(79,209,197,.04)", col: "#4fd1c5" },
+  { id: "game", x: 986, w: 494, label: "GAME", sub: "where pieces earn", stroke: "rgba(110,168,255,.3)", fill: "rgba(110,168,255,.035)", col: "#6ea8ff" },
+];
+
+// kind: stock | group | job | sub | decision | offered
+// Stocks in the wallet belong to a group; an arrow can land on the group as a whole.
+const N = {
+  bank:     { kind: "stock", region: "economy", x: 118, y: 120, w: 150, h: 50, res: "cash", name: "Your money", sub: "outside Sorare", outside: true },
+  cash:     { kind: "stock", group: "money", x: 118, y: 270, w: 150, h: 50, res: "cash", name: "Cash", sub: "earns no interest" },
+  eth:      { kind: "stock", group: "money", x: 118, y: 330, w: 150, h: 50, res: "eth", name: "ETH", sub: "exit: buy cards, sell for $", exposure: true },
+  credits:  { kind: "stock", group: "noncash", x: 118, y: 410, w: 150, h: 50, res: "perks", name: "Credits", sub: "money off a buy" },
+  clues:    { kind: "stock", group: "noncash", x: 118, y: 468, w: 150, h: 50, res: "perks", name: "Clues", sub: "craft only" },
+  essence:  { kind: "stock", group: "noncash", x: 118, y: 584, w: 150, h: 50, res: "essence", name: "Essence", sub: "no cash value" },
+  axp:      { kind: "stock", group: "noncash", x: 118, y: 526, w: 150, h: 50, res: "xp", name: "Assignable XP", sub: "feed it to any card" },
+  money:    { kind: "group", x: 210, y1: 245, y2: 355, name: "Money" },
+  noncash:  { kind: "group", x: 210, y1: 385, y2: 609, name: "Non-cash rewards" },
+  cards:    { kind: "stock", region: "pieces", x: 812, y: 440, w: 206, h: 104, res: "cards", name: "Your cards", sub: "on-card XP travels with each card" },
+
+  bankroll: { kind: "job", region: "economy", x: 340, y: 150, r: 46, name: "Manage the bankroll", sub: "" },
+  sorare:   { kind: "job", region: "economy", x: 478, y: 285, r: 50, name: "Sorare marketplace", sub: "auctions · buy it now" },
+  manager:  { kind: "job", region: "economy", x: 478, y: 455, r: 50, name: "Manager marketplace", sub: "" },
+  wheel:    { kind: "sub", region: "economy", x: 350, y: 520, r: 34, name: "Spin the wheel", sub: "sub-game · seasonal" },
+  craft:    { kind: "job", region: "economy", x: 575, y: 720, r: 48, name: "Craft", sub: "Essence → cards" },
+  playsell: { kind: "decision", region: "pieces", x: 812, y: 215, h: 66, name: "Play, sell or seal?", sub: "the heart of the map" },
+  vault:    { kind: "stock", region: "pieces", x: 905, y: 104, w: 112, h: 50, res: "vault", name: "The vault", sub: "13% bonus today" },
+  collect:  { kind: "job", region: "pieces", x: 812, y: 690, r: 54, name: "Build the collection", sub: "team bonus · missions" },
+  lineups:  { kind: "job", region: "game", x: 1110, y: 235, r: 58, name: "Build winning lineups", sub: "configure · XP · bonus" },
+  tourney:  { kind: "job", region: "game", x: 1335, y: 445, r: 68, name: "Succeed at tournaments", sub: "leaderboards · streaks" },
+  daily:    { kind: "sub", region: "game", x: 1110, y: 650, r: 40, name: "Daily missions", sub: "sub-game · nightly" },
+  rare:     { kind: "offered", region: "game", x: 1380, y: 790, r: 32, name: "Rare and up", sub: "offered · not played" },
+};
+for (const g of ["money", "noncash"]) N[g].y = (N[g].y1 + N[g].y2) / 2;
+
+// bend: perpendicular offset of the curve's control point; ctrl: absolute control point.
+// res may be a list when one arrow carries several resources.
+const E = [
+  { from: "bank", to: "bankroll", res: ["cash", "eth"], label: "in · out", both: true, toll: "≈1% in · fee out", bend: -22 },
+  { from: "bankroll", to: "money", res: ["cash", "eth"], label: "reinvest", both: true, bend: -14 },
+  { from: "money", to: "sorare", res: ["cash", "eth"], label: "buy", bend: 16 },
+  { from: "credits", to: "sorare", res: "perks", label: "money off", bend: -12 },
+  { from: "sorare", to: "cards", res: "cards", label: "first-owner cards", bend: -18 },
+  { from: "sorare", to: "collect", res: "cards", label: "missions", ctrl: [680, 640], dashed: true },
+  { from: "money", to: "manager", res: ["cash", "eth"], label: "buy", bend: 22 },
+  { from: "manager", to: "money", res: ["cash", "eth"], label: "sale: $ or ETH", bend: 22 },
+  { from: "manager", to: "cards", res: "cards", label: "secondhand · trades", bend: 14 },
+  { from: "playsell", to: "manager", res: "cards", label: "sell · trade", bend: 30, toll: "5% fee · ½ XP · team points" },
+  { from: "playsell", to: "vault", res: "vault", label: "seal · unseal", both: true, bend: -46 },
+  { from: "vault", to: "tourney", res: "vault", label: "vault bonus on $ · Essence prizes", ctrl: [1330, 110], dashed: true },
+  { from: "cards", to: "playsell", res: "cards", label: "" },
+  { from: "playsell", to: "lineups", res: "cards", label: "play", bend: -18 },
+  { from: "sorare", to: "wheel", res: "perks", label: "tickets", ctrl: [360, 400] },
+  { from: "wheel", to: "noncash", res: ["perks", "essence", "xp"], label: "random reward", bend: -10 },
+  { from: "essence", to: "craft", res: "essence", label: "required", bend: 10 },
+  { from: "clues", to: "craft", res: "perks", label: "optional", bend: -14, dashed: true },
+  { from: "craft", to: "cards", res: "cards", label: "crafted", bend: 22 },
+  { from: "axp", to: "cards", res: "xp", label: "feed XP", ctrl: [480, 650] },
+  { from: "cards", to: "collect", res: "cards", label: "hold" },
+  { from: "craft", to: "collect", res: "cards", label: "counts", bend: 18, dashed: true },
+  { from: "collect", to: "essence", res: "essence", label: "mission Essence", ctrl: [520, 920] },
+  { from: "collect", to: "lineups", res: "bonus", label: "team bonus", bend: 50, dashed: true },
+  { from: "lineups", to: "tourney", res: "cards", label: "lineups", bend: -20 },
+  { from: "tourney", to: "money", res: ["cash", "eth"], label: "prizes: $ or ETH, your pick", c1: [1250, -250], c2: [560, 120] },
+  { from: "tourney", to: "cards", res: ["xp", "cards"], label: "on-card XP · prize cards", bend: -16 },
+  { from: "tourney", to: "noncash", res: ["essence", "perks", "xp"], label: "Essence · credits · XP prizes", ctrl: [900, 1160] },
+  { from: "cards", to: "daily", res: "cards", label: "any-season cards", bend: 24 },
+  { from: "daily", to: "noncash", res: ["xp", "essence", "perks"], label: "nightly: XP + one random reward", ctrl: [760, 960] },
+  { from: "essence", to: "tourney", res: "essence", label: "Arena entry", ctrl: [1040, 1010], dashed: true },
+];
+
+// "served" — a quick read of the sorare repo (README, plans/JOBS.md, file names). Not an audit.
+const SERVED = {
+  sorare: "heavy", manager: "some", wheel: "heavy", craft: "some", collect: "some",
+  lineups: "trace", tourney: "none", playsell: "none", daily: "none", bankroll: "none",
+};
+const SERVED_STYLE = { heavy: ["#4fd1c5", "WELL SERVED"], some: ["#8fd18a", "SOME"], trace: ["#ff9b7a", "BARELY"], none: ["#ff6a3d", "NOTHING YET"] };
+
+const state = { focus: null, res: null, served: false };
+
+// ---------------------------------------------------------------------------
+// Geometry
+// ---------------------------------------------------------------------------
+function cubic(e) {
+  const c1 = { x: e.c1[0], y: e.c1[1] }, c2 = { x: e.c2[0], y: e.c2[1] };
+  const p1 = rim(N[e.from], c1, 4), p2 = rim(N[e.to], c2, 9);
+  const mid = { x: (p1.x + 3 * c1.x + 3 * c2.x + p2.x) / 8, y: (p1.y + 3 * c1.y + 3 * c2.y + p2.y) / 8 };
+  return { d: `M${p1.x},${p1.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${p2.x},${p2.y}`, mid };
+}
+function ctrlOf(e) {
+  const a = N[e.from], b = N[e.to];
+  if (e.ctrl) return { x: e.ctrl[0], y: e.ctrl[1] };
+  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+  const nx = -dy / L, ny = dx / L, k = e.bend || 0;
+  return { x: (a.x + b.x) / 2 + nx * k, y: (a.y + b.y) / 2 + ny * k };
+}
+function rim(n, toward, pad = 6) {
+  if (n.kind === "group") return { x: n.x + pad, y: Math.max(n.y1 + 8, Math.min(n.y2 - 8, toward.y)) };
+  const dx = toward.x - n.x, dy = toward.y - n.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+  let d;
+  if (n.kind === "stock") d = Math.min(n.w / 2 / Math.abs(ux || 1e-6), n.h / 2 / Math.abs(uy || 1e-6));
+  else if (n.kind === "decision") d = n.h / (Math.abs(ux) + Math.abs(uy));
+  else d = n.r;
+  return { x: n.x + ux * (d + pad), y: n.y + uy * (d + pad) };
+}
+function geom(e) {
+  if (e.c1) return cubic(e);
+  const c = ctrlOf(e), p1 = rim(N[e.from], c, e.both ? 9 : 4), p2 = rim(N[e.to], c, 9);
+  const mid = { x: (p1.x + 2 * c.x + p2.x) / 4, y: (p1.y + 2 * c.y + p2.y) / 4 };
+  return { d: `M${p1.x},${p1.y} Q${c.x},${c.y} ${p2.x},${p2.y}`, mid };
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function wrap(text, max) {
+  const out = []; let cur = "";
+  for (const w of String(text).split(/\s+/)) {
+    if ((cur + " " + w).trim().length > max && cur) { out.push(cur); cur = w; } else cur = (cur + " " + w).trim();
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+function textBlock(lines, x, y, cls, lh = 16) {
+  const y0 = y - ((lines.length - 1) * lh) / 2;
+  return `<text class="${cls}">${lines.map((l, i) => `<tspan x="${x}" y="${y0 + i * lh}">${esc(l)}</tspan>`).join("")}</text>`;
+}
+function pill(x, y, label, hexes) {
+  const dots = hexes.length > 1 ? hexes : [];
+  const pad = dots.length * 9, w = label.length * 6.9 + 20 + pad;
+  return `<g class="pill" transform="translate(${x},${y})"><rect x="${-w / 2}" y="-11" width="${w}" height="22" rx="11" stroke="${hexes[0]}"/>
+    ${dots.map((h, i) => `<circle cx="${-w / 2 + 12 + i * 9}" cy="0" r="3.4" fill="${h}"/>`).join("")}
+    <text x="${pad / 2}" fill="${dots.length ? "#dbe7ef" : hexes[0]}">${esc(label)}</text></g>`;
+}
+function toll(x, y, label) {
+  const w = label.length * 6.1 + 26;
+  return `<g class="toll" transform="translate(${x},${y})"><rect x="${-w / 2}" y="-10" width="${w}" height="20" rx="4"/>
+    <text>⛔ ${esc(label)}</text></g>`;
+}
+
+function renderDefs() {
+  document.getElementById("defs").innerHTML = Object.entries(RES).map(([k, r]) =>
+    `<marker id="ah-${k}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+       <path d="M0,0 L10,5 L0,10 z" fill="${r.hex}"/></marker>`).join("");
+}
+function renderRegions() {
+  document.getElementById("layer-regions").innerHTML = REGIONS.map((g) => `<g class="region">
+    <rect x="${g.x}" y="18" width="${g.w}" height="884" rx="22" fill="${g.fill}" stroke="${g.stroke}" ${g.dash ? 'stroke-dasharray="5 6"' : ""}/>
+    <text class="rl" x="${g.x + 20}" y="50" fill="${g.col}">${g.label}</text>
+    <text class="rs" x="${g.x + 20}" y="68">${esc(g.sub)}</text></g>`).join("") +
+    `<g class="region"><rect x="32" y="196" width="200" height="428" rx="16" fill="rgba(240,180,90,.035)" stroke="rgba(240,180,90,.3)"/>
+      <text class="rl" x="46" y="216" fill="#f0b45a" style="font-size:11px;letter-spacing:2px">SORARE WALLET</text>
+      <text class="rs" x="46" y="238" style="font-size:10.5px;letter-spacing:1.5px;font-weight:700">MONEY</text>
+      <text class="rs" x="46" y="376" style="font-size:10.5px;letter-spacing:1.5px;font-weight:700">NON-CASH REWARDS</text></g>`;
+}
+function renderEdges() {
+  let s = "";
+  E.forEach((e, i) => {
+    const { d, mid } = geom(e), list = [].concat(e.res), r = RES[list[0]];
+    const on = !state.res || list.includes(state.res);
+    s += `<g class="edge ${e.dashed ? "dashed" : ""} ${on ? "on" : ""}" data-i="${i}" data-from="${e.from}" data-to="${e.to}" ${e.offered ? 'style="opacity:.35"' : ""}>
+      <path d="${d}" stroke="${r.hex}" stroke-opacity="${e.offered ? .5 : .75}" marker-end="url(#ah-${list[0]})" ${e.both ? `marker-start="url(#ah-${list[0]})"` : ""} ${e.offered ? 'stroke-dasharray="3 6"' : ""}/>`;
+    if (e.label) s += pill(mid.x, mid.y, e.label, list.map((k) => RES[k].hex));
+    if (e.toll) s += toll(mid.x, mid.y + (e.label ? 25 : 0), e.toll);
+    s += `</g>`;
+  });
+  document.getElementById("layer-edges").innerHTML = s;
+}
+function renderNodes() {
+  let s = "";
+  for (const [id, n] of Object.entries(N)) {
+    const cls = `node ${n.kind} ${n.kind === "decision" ? "heart" : ""} ${n.kind === "offered" ? "offered" : ""}`;
+    s += `<g class="${cls}" data-id="${id}">`;
+    if (n.kind === "group") {
+      s += `<path d="M${n.x - 8},${n.y1} H${n.x} V${n.y2} H${n.x - 8}" fill="none" stroke="#7d8fa0" stroke-width="1.6"/>`;
+    } else if (n.kind === "stock") {
+      const r = RES[n.res];
+      const x0 = n.x - n.w / 2, y0 = n.y - n.h / 2;
+      s += `<rect class="body" x="${x0}" y="${y0}" width="${n.w}" height="${n.h}" rx="12" fill="#0d161d" stroke="${r.hex}" stroke-width="1.8" ${n.outside ? 'stroke-dasharray="6 5"' : ""}/>
+        <rect x="${x0 + 3}" y="${y0 + n.h * 0.52}" width="${n.w - 6}" height="${n.h * 0.48 - 3}" rx="9" fill="${r.hex}" opacity=".14"/>`;
+      if (n.exposure) s += `<g transform="translate(${x0 + n.w - 14},${y0 + 14})"><circle r="9" fill="#2a1e0c" stroke="#f0b45a" stroke-width="1.3"/>
+        <text y="4" fill="#f0b45a" font-size="11" font-weight="800" text-anchor="middle">⇅</text></g>`;
+      s += `<text class="name" x="${n.x}" y="${n.y - (n.h > 60 ? 4 : 2)}">${esc(n.name)}</text>`;
+      s += `<text class="subt" x="${n.x}" y="${n.y + (n.h > 60 ? 16 : 14)}">${esc(n.sub)}</text>`;
+    } else if (n.kind === "decision") {
+      const h = n.h;
+      s += `<polygon class="heart-ring" points="${n.x},${n.y - h - 12} ${n.x + h + 12},${n.y} ${n.x},${n.y + h + 12} ${n.x - h - 12},${n.y}"/>`;
+      s += `<polygon class="body" points="${n.x},${n.y - h} ${n.x + h},${n.y} ${n.x},${n.y + h} ${n.x - h},${n.y}" fill="#2a1e0c" stroke="#f0b45a" stroke-width="2.4"/>`;
+      s += textBlock(wrap(n.name, 9), n.x, n.y + 4, "name");
+      s += `<text class="subt" x="${n.x - h - 16}" y="${n.y + 4}" style="fill:#f0b45a;text-anchor:end">${esc(n.sub)}</text>`;
+    } else {
+      const col = "#6ea8ff";
+      const fill = n.kind === "offered" ? "#0d141a" : "#0f1c22";
+      s += `<circle class="body" cx="${n.x}" cy="${n.y}" r="${n.r}" fill="${fill}" stroke="${n.kind === "offered" ? "#4a5c6c" : col}" stroke-width="2.2"/>`;
+      if (n.kind === "sub") s += `<circle cx="${n.x}" cy="${n.y}" r="${n.r - 6}" fill="none" stroke="${col}" stroke-opacity=".35" stroke-dasharray="2 4"/>`;
+      const lines = wrap(n.name, n.kind === "job" ? 12 : 9);
+      s += textBlock(lines, n.x, n.y + 4, "name");
+      s += `<text class="subt" x="${n.x}" y="${n.y + n.r + 18}">${esc(n.sub)}</text>`;
+    }
+    if (state.served && SERVED[id]) {
+      const [col, tag] = SERVED_STYLE[SERVED[id]];
+      const R = n.kind === "decision" ? n.h + 20 : (n.r || 40) + 9;
+      s += n.kind === "decision"
+        ? `<polygon class="served-ring" stroke="${col}" points="${n.x},${n.y - R} ${n.x + R},${n.y} ${n.x},${n.y + R} ${n.x - R},${n.y}" ${SERVED[id] === "none" ? 'stroke-dasharray="6 5"' : ""}/>`
+        : `<circle class="served-ring" cx="${n.x}" cy="${n.y}" r="${R}" stroke="${col}" ${SERVED[id] === "none" || SERVED[id] === "trace" ? 'stroke-dasharray="6 5"' : ""}/>`;
+      const w = tag.length * 7 + 18, ty = n.y - R - (n.kind === "decision" ? 40 : 14);
+      s += `<g class="served-tag" transform="translate(${n.x},${ty})"><rect x="${-w / 2}" y="-10" width="${w}" height="20" rx="10" fill="#0b1016" stroke="${col}"/><text fill="${col}">${tag}</text></g>`;
+    }
+    s += `</g>`;
+  }
+  document.getElementById("layer-nodes").innerHTML = s;
+  document.querySelectorAll(".node").forEach((g) => {
+    const id = g.dataset.id;
+    g.addEventListener("mouseenter", () => setFocus(id));
+    g.addEventListener("mouseleave", () => setFocus(null));
+    if (ROOMS[id]) g.addEventListener("click", () => openRoom(id));
+  });
+}
+function setFocus(id) {
+  const svg = document.getElementById("map");
+  svg.classList.toggle("focus", !!id);
+  const ids = new Set(id ? [id, N[id].group].filter(Boolean) : []);
+  if (id && N[id].kind === "group") Object.entries(N).forEach(([k, n]) => { if (n.group === id) ids.add(k); });
+  document.querySelectorAll(".edge").forEach((e) => e.classList.toggle("hi", ids.has(e.dataset.from) || ids.has(e.dataset.to)));
+  const near = new Set(ids);
+  if (id) E.forEach((e) => { if (ids.has(e.from)) near.add(e.to); if (ids.has(e.to)) near.add(e.from); });
+  document.querySelectorAll(".node").forEach((n) => n.classList.toggle("hi", !!id && near.has(n.dataset.id)));
+}
+
+// ---------------------------------------------------------------------------
+// Panel
+// ---------------------------------------------------------------------------
+function renderPanel() {
+  const el = document.getElementById("panel");
+  const shape = (k) => ({
+    stock: `<svg viewBox="0 0 34 26"><rect x="3" y="5" width="28" height="16" rx="5" fill="#0d161d" stroke="#4fd1c5" stroke-width="1.5"/><rect x="5" y="13" width="24" height="6" rx="3" fill="#4fd1c5" opacity=".2"/></svg>`,
+    job: `<svg viewBox="0 0 34 26"><circle cx="17" cy="13" r="10" fill="#0f1c22" stroke="#6ea8ff" stroke-width="1.8"/></svg>`,
+    sub: `<svg viewBox="0 0 34 26"><circle cx="17" cy="13" r="7" fill="#0f1c22" stroke="#6ea8ff" stroke-width="1.6"/></svg>`,
+    decision: `<svg viewBox="0 0 34 26"><polygon points="17,2 28,13 17,24 6,13" fill="#2a1e0c" stroke="#f0b45a" stroke-width="2"/></svg>`,
+    toll: `<svg viewBox="0 0 34 26"><rect x="2" y="7" width="30" height="12" rx="3" fill="#2a1210" stroke="#ff6a3d"/></svg>`,
+    offered: `<svg viewBox="0 0 34 26"><circle cx="17" cy="13" r="8" fill="none" stroke="#4a5c6c" stroke-width="1.6" stroke-dasharray="3 3"/></svg>`,
+  }[k]);
+  let h = `<div class="kicker">The high-level view</div><h2>Every card can be played, sold or sealed</h2>
+    <p class="why">Three regions: the economy, your game pieces and the game. Cards sit in the middle, and every loop passes through them. Hover over anything to see its flows. Click a job to open its room.</p>`;
+  h += `<h3>How to read it</h3><div class="legend">
+    ${shape("stock")}<span><b>Stock</b>: something you hold</span>
+    ${shape("job")}<span><b>Job</b>: turns one stock into another</span>
+    ${shape("sub")}<span><b>Sub-game</b>: a small game that feeds a job</span>
+    ${shape("decision")}<span><b>Decision</b>: a stock that can go two ways</span>
+    ${shape("toll")}<span><b>Toll</b>: what a crossing costs you</span>
+    <svg viewBox="0 0 34 26"><path d="M14,4 H22 V22 H14" fill="none" stroke="#7d8fa0" stroke-width="1.6"/></svg><span><b>Bracket</b>: the arrow lands on one or more stocks in the group</span>
+    <svg viewBox="0 0 34 26"><circle cx="17" cy="13" r="9" fill="#2a1e0c" stroke="#f0b45a" stroke-width="1.3"/><text x="17" y="17" fill="#f0b45a" font-size="11" font-weight="800" text-anchor="middle">⇅</text></svg><span><b>Exposure</b>: its value in cash moves, so holding it can make or lose money</span>
+    ${shape("offered")}<span><b>Offered</b>: in the game, but you don't play it</span></div>`;
+  h += `<h3>Follow one resource</h3><div class="chips">
+    <button class="chip ${!state.res ? "on" : ""}" data-res="">All flows</button>
+    ${Object.entries(RES).map(([k, r]) => `<button class="chip ${state.res === k ? "on" : ""}" data-res="${k}"><span class="sw" style="background:${r.hex}"></span>${r.label}</button>`).join("")}</div>`;
+  h += `<h3>Lens</h3><label class="toggle"><input type="checkbox" id="served" ${state.served ? "checked" : ""}/> What the sorare tooling serves today</label>`;
+  if (state.served) h += `<div class="callout">Almost all of the tooling sits in the <b style="color:#f0b45a">economy</b>: the bidder, and its ticket mode, which plays the wheel sub-game. The <b style="color:#f0b45a">Play or sell?</b> decision and the whole <b style="color:#6ea8ff">game</b> region have nothing behind them.</div>`;
+  const groups = { economy: "Economy", pieces: "Game pieces", game: "Game" };
+  h += `<h3>The jobs</h3><div class="jobs">`;
+  for (const [g, label] of Object.entries(groups)) {
+    const ids = Object.keys(ROOMS).filter((id) => N[id].region === g);
+    if (!ids.length) continue;
+    h += `<div class="grp">${label}</div>`;
+    for (const id of ids) {
+      const sv = SERVED[id] ? SERVED_STYLE[SERVED[id]] : null;
+      h += `<div class="row" data-open="${id}">${shape(N[id].kind === "decision" ? "decision" : N[id].kind === "sub" ? "sub" : "job")}<span>${esc(N[id].name)}</span>
+        ${state.served && sv ? `<span class="s" style="color:${sv[0]}">${sv[1]}</span>` : ""}</div>`;
+    }
+  }
+  h += `</div><div class="foot">The game rules and numbers come from your v1 library (~/Desktop/Sorare/library). The worked examples are from what you told me on 2026-10-29. "Served" comes from a quick read of the sorare repo; it isn't an audit.</div>`;
+  el.innerHTML = h;
+  el.querySelectorAll("[data-res]").forEach((b) => b.onclick = () => {
+    state.res = b.dataset.res || null;
+    document.getElementById("map").classList.toggle("res", !!state.res);
+    renderEdges(); renderPanel();
+  });
+  el.querySelector("#served").onchange = (e) => { state.served = e.target.checked; renderNodes(); renderPanel(); };
+  el.querySelectorAll("[data-open]").forEach((r) => {
+    r.onclick = () => openRoom(r.dataset.open);
+    r.onmouseenter = () => setFocus(r.dataset.open);
+    r.onmouseleave = () => setFocus(null);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Rooms. The room's shape follows the job's shape.
+// ---------------------------------------------------------------------------
+const stmt = (w, i, s) => `<div class="stmt"><div class="box"><small>When</small>${w}</div><div class="box"><small>I want to</small>${i}</div><div class="box"><small>So</small>${s}</div></div>`;
+const rp = (res, label) => `<span class="rp" style="color:${RES[res].hex};border-color:${RES[res].hex}">${label}</span>`;
+const steps = (arr) => `<div class="backbone">${arr.map(([t, served], i) => `<div class="step ${served.length ? "" : "gap"}">
+  <div class="num">${i + 1}</div><div class="t">${t}</div>
+  ${served.length ? served.map((c) => `<span class="code">${c}</span>`).join("") : `<span class="code gap">nothing yet</span>`}</div>`).join("")}</div>`;
+
+const ROOMS = {
+  playsell: { kind: "Decision · the heart of the map", color: "#f0b45a", html: () => `
+    ${stmt("a card I hold is in demand before a game week", "know whether it earns more in my lineups or in a buyer's hands", "I'm never having fun at my own expense")}
+    <h4>What sits on each side of the scale</h4>
+    <div class="scale">
+      <div class="pan play"><b style="color:#4fd1c5">Keep and play</b><ul>
+        <li>Is it a <b style="display:inline;font-size:inherit">key piece</b> this game week, or can I field strong lineups without it?</li>
+        <li>My chance of cashing, or of keeping a streak alive, with it versus without it</li>
+        <li>What a streak has riding on it: 270 → 290 ($400) → 310 ($2,000)</li>
+        <li>The XP I've force-fed it (a sale halves it)</li>
+        <li>The team bonus it holds up</li></ul></div>
+      <div class="fulcrum">⚖</div>
+      <div class="pan sell"><b style="color:#f0b45a">Sell now</b><ul>
+        <li>Price now versus what I paid, and its peak a few hours before the game week</li>
+        <li>Cards always get cheaper, so I can buy it back later for less</li>
+        <li>A star-rating jump can turn a great piece into an unplayable one</li>
+        <li>Buyers are hungriest now; demand fades as streaks get knocked out</li>
+        <li>Minus the 5% market fee</li></ul></div>
+    </div>
+    <p class="note"><b style="color:#ffd479">Seal</b> is the rare third way: when a high-value card isn't needed in lineups and the vault bonus is worth more than playing it.</p>
+    <p class="note">The comparison you're making: <b>chance of cashing × prize, with the card versus without it</b>, against <b>sale price − 5% − XP and bonus lost + the cost of buying it back</b>.</p>
+    <h4>Your examples</h4>
+    <table class="t"><tr><th>Card</th><th>Basis</th><th>Now</th><th>Where you'd sell</th></tr>
+      <tr><td>Julius Randle ×2</td><td>crafted</td><td>~$50, up from ~$20 (opening day ~$90)</td><td>$100: hard to say no · $200: have to sell</td></tr>
+      <tr><td>AJ Dybantsa</td><td>bought at $36.60</td><td>~$50, with trades up to ~$65</td><td>$60: a nice flip · $100: hard to say no</td></tr>
+      <tr><td>Your 5★ cards (season start)</td><td>sold at $65</td><td>~$45</td><td>sold; lost XP; hoping to buy back near $30</td></tr></table>
+    <h4>Served by</h4><span class="code gap">nothing yet: this is the decision everything comes down to</span>` },
+
+  tourney: { kind: "Job · Game · the core of the game", color: "#6ea8ff", html: () => `
+    ${stmt("a game week opens", "choose my competitions and give every lineup a purpose", "I bank cash, Essence and XP, and keep a streak alive")}
+    <h4>You choose the competitions</h4>
+    <div class="tree">
+      ${["Champion · 16★", "Contender · 11★"].map((f) => `<div class="fmt"><b>In-Season ${f}</b> <span class="m">5 lineups · current-season cards</span>
+        <div class="tracks"><div class="track"><b>Leaderboard</b>Parallel: five lineups give five chances.</div>
+        <div class="track"><b>Hot streak</b>Sequential: one ladder, one rung per game week. A miss resets it.</div></div></div>`).join("")}
+      <div class="fmt"><b>Classic Champion / Contender</b> <span class="m">3 lineups each · any-season cards</span>
+        <div class="tracks"><div class="track"><b>Leaderboard</b>Pays cards and Essence. There's rarely a reason not to enter.</div>
+        <div class="track" style="border-color:rgba(255,106,61,.6)"><b style="color:#ff9b7a">Dummy XP-farm lineups</b>A weekly miss today: playing guarantees XP even when a lineup can't win.</div></div></div>
+      <div class="fmt" style="opacity:.75"><b>Arena</b> <span class="m">Essence entry · rooms of 10 · unlimited lineups</span>
+        <div class="tracks"><div class="track"><b>Room leaderboard</b>Bet Essence to win more Essence. Placing is mostly in your hands.</div>
+        <div class="track"><b>Not played today</b>It competes with crafting for the same Essence.</div></div></div>
+    </div>
+    <h4>The Champion streak ladder (launch boost, game weeks 1–8)</h4>
+    <div class="ladder">${[[240, "$10", 30], [250, "$20", 42], [270, "$100", 58], [290, "$400", 78], [310, "$2,000", 100]].map(([t, p, hgt]) =>
+      `<div class="rung ${t === 270 ? "here" : ""}" style="height:${hgt}%">${t === 270 ? '<span class="you">this weekend · ~59–65%</span>' : ""}<b>${p}</b>${t}</div>`).join("")}</div>
+    <p class="note">The big prizes are a run you have to survive, and the fat four-day game weeks (Monday–Thursday) are where you go for them. Once you're knocked out, selling gets much easier, and the same is true for everyone else, so the market's appetite drops too.</p>
+    <h4>The five In-Season lineups as a portfolio</h4>
+    <div class="slots">
+      <div class="slot"><b>Streak floor</b>A high-floor lineup to clear the target</div>
+      <div class="slot"><b>Contrarian ceiling</b>Shoot the moon on the leaderboard</div>
+      <div class="slot"><b>XP farm</b>Level up the cards that need it</div>
+      <div class="slot open"><b>Slot 4</b>What's this one for?</div>
+      <div class="slot open"><b>Slot 5</b>What's this one for?</div></div>
+    <h4>What it pays</h4>${rp("cash", "$ or ETH prizes: your pick")}${rp("essence", "Essence")}${rp("xp", "on-card XP: guaranteed for every card played")}${rp("xp", "assignable XP: lower prize tiers")}${rp("perks", "credits: strong Contender finishes, worth most early")}${rp("cards", "cards (Classic)")}
+    <h4>Event boards: the Emirates NBA Cup (Oct 30 – Nov 17)</h4>
+    <table class="t"><tr><th>Step</th><th>In-Season cards</th><th>Score</th><th>Reward</th></tr>
+      <tr><td>1</td><td>1</td><td>230</td><td>200 Essence</td></tr><tr><td>2</td><td>1</td><td>250</td><td>400 Essence</td></tr>
+      <tr><td>3</td><td>2</td><td>270</td><td>1,000 Essence</td></tr><tr><td>4</td><td>3</td><td>280</td><td>50 credits</td></tr>
+      <tr><td>5</td><td>4</td><td>300</td><td>a share of $10K, split among everyone who clears it; clear it as often as you can</td></tr></table>
+    <p class="note">A new game: anytime entry, 4 lives per step, and Classic cards carry the first steps. Source: Sorare blog, Oct 29.</p>
+    <h4>Offered, not played</h4><p class="note" style="margin-top:0">Rare and up: payouts cut, and its streak runs only in game weeks 1–8.</p>
+    <h4>Served by</h4><span class="code gap">nothing yet</span>` },
+
+  lineups: { kind: "Job · Game", color: "#6ea8ff", html: () => `
+    ${stmt("a game week is coming", "build lineups and optimize them, XP and team bonus included", "my cards score above their box score")}
+    <h4>The job, step by step</h4>${steps([
+      ["Pick the format and Star budget (16★ / 11★)", []],
+      ["Pick players: the best game of the week counts, so games played matter", ["fetch/ fixtures (dates only)"]],
+      ["Fill gaps from the backlog (this week, Schröder)", []],
+      ["Feed assignable XP and stack the team bonus; both lock at submit", []],
+      ["Submit before lock", []]])}
+    <p class="note">Buying key pieces ahead of time and building up their team bonus and XP matters most early in the season.</p>` },
+
+  sorare: { kind: "Job · Economy · first-owner cards", color: "#f0b45a", html: () => `
+    ${stmt("a card I want is at auction or on Instant Buy", "choose between bidding and buying it now, at a good price", "I get first-owner cards that count for missions, plus wheel tickets")}
+    <h4>Bid or buy it now: always the choice</h4>
+    <table class="t"><tr><th>Channel</th><th>Wheel ticket</th><th>Credits usable</th><th>XP on transfer</th><th>First owner</th><th>Fee</th></tr>
+      <tr><td>Auction (win or 2nd)</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">intact</td><td class="yes">kept</td><td>none</td></tr>
+      <tr><td>Buy it now (Instant Buy)</td><td class="yes">yes</td><td class="yes">yes</td><td class="yes">intact</td><td class="yes">kept</td><td>none</td></tr></table>
+    <p class="note">You only buy it now at an exceptional price or in a pinch. Either way the card is first-owner, so it counts for collection missions, and missions pay the Essence the factory runs on.</p>
+    <h4>Served by</h4><span class="code">bidder/ (win or TICKET)</span><span class="code">jobs/buysheet.py · jobs/bidsheet.py</span><span class="code">model/odds.py · model/ladder.py</span><span class="code gap">the bid-or-buy-it-now call: nothing yet</span>` },
+
+  manager: { kind: "Job · Economy · secondhand cards", color: "#f0b45a", html: () => `
+    ${stmt("a manager lists a card I want, or one I hold is worth more to someone else", "buy, sell or trade, with or without cash", "cash and cards move my way")}
+    <h4>Who you can trade with depends on what you hold</h4>
+    <div class="box">Some managers only deal in ETH, some only in cash, and some take either. Holding both widens the market, but ETH's price against cash moves, so it can make or lose money while you hold it.</div>
+    <h4>What each move costs or carries</h4>
+    <table class="t"><tr><th>Move</th><th>Wheel ticket</th><th>Credits usable</th><th>XP on transfer</th><th>First owner</th><th>Fee</th></tr>
+      <tr><td>Buy a listing / your offer accepted</td><td class="no">no</td><td class="no">no</td><td class="no">halved</td><td class="no">lost</td><td class="no">5% to the seller</td></tr>
+      <tr><td>Sell: list, then answer the offers that come in</td><td class="unk">n/a</td><td class="unk">n/a</td><td class="no">buyer gets half</td><td class="unk">n/a</td><td class="no">5% to you</td></tr>
+      <tr><td>Trade cards, with or without cash</td><td class="unk">?</td><td class="unk">?</td><td class="unk">?</td><td class="unk">?</td><td class="unk">not in your library</td></tr></table>
+    <p class="note">This market never adds to your collection missions, and selling subtracts: listing a card pulls its team points. It makes cards and cash, <b>never Essence</b>.</p>
+    <h4>Served by</h4><span class="code">offerer/ (buy offers)</span><span class="code">viewer/market.py · jobs/gapindex.py</span><span class="code gap">selling: nothing yet</span>` },
+
+  vault: { kind: "Stock · Game pieces · the vault", color: "#ffd479", html: () => `
+    ${stmt("a card is worth a lot and my lineups don't need it", "seal it in the vault, and unseal it when it spikes", "my cash and Essence prizes pay more (a 13% bonus today)")}
+    <h4>The job, step by step</h4>${steps([
+      ["Pick cards to seal: their value drives the bonus", []],
+      ["Track what sealed cards are worth", []],
+      ["Unseal at a spike, then sell it or reseal it higher", []]])}
+    <p class="note">From your library: vault level N gives an N% bonus, up to 20%. It multiplies rewards, not scores, and locks before each game week. Seal is the rare branch of Play, sell or seal.</p>` },
+
+  wheel: { kind: "Sub-game · Economy · between buying and crafting", color: "#ff8fb1", html: () => `
+    ${stmt("I win or place 2nd in an auction, or Instant Buy", "turn the tickets into the most useful prizes", "buying gets cheaper and crafting gets fuel")}
+    <h4>The job, step by step</h4>${steps([
+      ["Earn tickets: win or place 2nd at auction, or Instant Buy", ["bidder: TICKET mode", "model/ticketcurve.py", "policy.json: ticket_value_usd"]],
+      ["Spin", []],
+      ["Use what lands: one random reward (clues, credits, Essence or XP)", []]])}
+    <p class="note">Seasonal: prominent at the start of the season and over holidays, mostly switched off otherwise. It gamifies buying, and the sorare bidder already bids to place 2nd just to earn spins.</p>` },
+
+  craft: { kind: "Job · Economy → game pieces", color: "#c4a1ff", html: () => `
+    ${stmt("I have Essence and clues", "turn them into the pieces worth the most to me", "what I earn from playing becomes new pieces")}
+    <h4>The job, step by step</h4>${steps([
+      ["Know what Essence is worth now (it falls across the season)", []],
+      ["Pick a draw", ["jobs/craftboard.py", "model/craft.py", "viewer/craft.py"]],
+      ["Spend Essence (required)", []],
+      ["Add clues if you have them (better odds)", []],
+      ["Send the new card to Play, sell or seal? (crafted cards are first-owner)", []]])}` },
+
+  collect: { kind: "Job · Game pieces", color: "#4fd1c5", html: () => `
+    ${stmt("I'm holding cards", "build team bonuses and work the collection missions", "lineups score more and missions pay Essence")}
+    <h4>The job, step by step</h4>${steps([
+      ["Hold for the team bonus (30-day unlisted clock)", []],
+      ["Work the mission ladders", ["jobs/missions.json", "jobs/pools.py"]],
+      ["Target missing players", ["jobs/buysheet.py (rungs)"]],
+      ["Fill gaps from past seasons' backlog", []]])}
+    <p class="note">Your library's working model, still untested: a mission pays once and is never taken back, but the progress count is live, so selling pushes the next threshold further away. Album points leave the moment a card is listed.</p>` },
+
+  daily: { kind: "Sub-game · Game", color: "#6ea8ff", html: () => `
+    ${stmt("the night's missions are up", "play them with cards from any season", "I pick up assignable XP every night, plus one random reward")}
+    <h4>The job, step by step</h4>${steps([["Mission one: always assignable XP (up to 300)", []], ["Mission two: one random non-cash reward (Essence, clues, credits or XP)", []], ["Feed the XP to the cards that need it", []]])}` },
+
+  bankroll: { kind: "Job · on the boundary", color: "#7d8fa0", html: () => `
+    ${stmt("cash lands, from a prize or a sale", "decide whether to reinvest it, hold it or take it out", "I leave the season with at least the bankroll I brought")}
+    <h4>The job, step by step</h4>${steps([
+      ["Deposit cash or ETH if needed: ≈1% net on a card (3% fee − 2% cashback)", []],
+      ["Pick the prize currency: ETH is the only way to get ETH besides selling for it", []],
+      ["Reinvest through at least the first half of the season", []],
+      ["Keep ETH's swings in view: the goal is counted in cash", ["model/ethusd.py (bid prices only)"]],
+      ["Get out of ETH: buy cards with it, then sell them for cash (a 5% fee on the way)", []],
+      ["Hold cash for opportunistic buys (a $119 In-Season Jokic)", []],
+      ["Withdraw at season end (platform risk; small fee)", []]])}
+    <p class="note">The goal lives here. "If I have to sell X cards to do it, I should."</p>` },
+};
+
+function openRoom(id) {
+  closeRoom();
+  const n = N[id], room = ROOMS[id], stage = document.getElementById("stage"), svg = document.getElementById("map");
+  const pt = svg.createSVGPoint(); pt.x = n.x; pt.y = n.y;
+  const sp = pt.matrixTransform(svg.getScreenCTM()), sr = stage.getBoundingClientRect();
+  const w = document.createElement("div");
+  w.id = "room-wrap";
+  w.innerHTML = `<div class="room-scrim"></div><div class="room" style="transform-origin:${sp.x - sr.left - 22}px ${sp.y - sr.top - 22}px">
+    <button class="close">Close ✕</button><div class="kind" style="color:${room.color}">${room.kind}</div>
+    <h2>${esc(n.name)}</h2>${room.html()}</div>`;
+  stage.appendChild(w);
+  w.querySelector(".close").onclick = closeRoom;
+  w.querySelector(".room-scrim").onclick = closeRoom;
+}
+function closeRoom() { document.getElementById("room-wrap")?.remove(); }
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeRoom(); });
+
+// ---------------------------------------------------------------------------
+// Time. Priority isn't fixed: each phase and event lights up the part of the
+// system that matters while it runs.
+// ---------------------------------------------------------------------------
+const PHASES = [
+  { id: "p1", name: "Wheel and tickets", when: "Oct 6 – 24", what: "Nothing matters more than optimizing the wheel and tickets.", nodes: ["sorare", "wheel", "credits", "clues", "craft", "collect", "noncash"] },
+  { id: "p2", name: "The post-wheel dip", when: "late Oct", now: true, what: "The market crashes to a local low. Get good at buying the dip.", nodes: ["sorare", "manager", "money", "bankroll", "cash", "eth"] },
+  { id: "p3", name: "Bonus-cash inflation", when: "from Oct 30", what: "People overpay for cards. Know when to play, sell or seal. Team bonuses matter most now.", nodes: ["playsell", "manager", "vault", "tourney", "lineups", "collect", "cards"] },
+  { id: "p4", name: "The real crash", when: "when bonus cash ends", what: "By now you need to have won cash, or divested enough to catch the bounce.", nodes: ["manager", "bankroll", "money", "cash", "eth", "sorare"] },
+  { id: "p5", name: "The flatline", when: "rest of the season", what: "Prices drift down while key cards spike. Can you win more than you'd sell for?", nodes: ["playsell", "tourney", "lineups", "manager", "daily", "cards"] },
+];
+const EVENTS = [
+  { id: "e1", name: "Launch boost", when: "GW 1–8 from Oct 20", what: "Champion hot streak prizes are doubled and the first two targets lowered.", nodes: ["tourney", "lineups"] },
+  { id: "e2", name: "Emirates NBA Cup board", when: "Oct 30 – Nov 17", what: "A new game: five steps, 4 lives each. 200 / 400 / 1,000 Essence, then 50 credits, then a share of $10K. Classic cards carry the first steps.", nodes: ["tourney", "lineups", "cards", "noncash", "money", "essence", "credits"] },
+  { id: "e3", name: "The wheel returns", when: "Black Friday → Christmas", what: "The wheel usually comes back, and tickets matter again.", nodes: ["wheel", "sorare", "craft", "clues", "credits"] },
+];
+const tstate = { id: null };
+function renderTime() {
+  const ph = (p, ev) => `<div class="ph ${ev ? "ev" : ""} ${tstate.id === p.id ? "sel" : ""}" data-ph="${p.id}">${p.now ? '<span class="now">NOW</span>' : ""}<b>${p.name}</b><span>${p.when}</span></div>`;
+  const cur = [...PHASES, ...EVENTS].find((p) => p.id === tstate.id);
+  document.getElementById("time").innerHTML = `<div class="row"><span class="lbl">SEASON</span>${PHASES.map((p) => ph(p)).join("")}</div>
+    <div class="row"><span class="lbl">EVENTS</span>${EVENTS.map((p) => ph(p, true)).join("")}</div>
+    <div class="note">${cur ? `<b>${cur.name}</b> (${cur.when}): ${cur.what}` : "Pick a phase or an event to light up the part of the system it puts in play."}</div>`;
+  document.querySelectorAll("[data-ph]").forEach((el) => el.onclick = () => { tstate.id = tstate.id === el.dataset.ph ? null : el.dataset.ph; applyTime(); });
+}
+function applyTime() {
+  const cur = [...PHASES, ...EVENTS].find((p) => p.id === tstate.id), on = new Set(cur ? cur.nodes : []);
+  document.getElementById("map").classList.toggle("phased", !!cur);
+  document.querySelectorAll(".node").forEach((n) => n.classList.toggle("ph-on", on.has(n.dataset.id)));
+  document.querySelectorAll(".edge").forEach((e) => e.classList.toggle("ph-on", on.has(e.dataset.from) && on.has(e.dataset.to)));
+  renderTime();
+}
+renderDefs(); renderRegions(); renderEdges(); renderNodes(); renderPanel(); applyTime();
+const hash = location.hash.slice(1);
+if (hash.startsWith("time-")) { tstate.id = hash.slice(5); applyTime(); }
+if (hash === "served") { state.served = true; renderNodes(); renderPanel(); }
+if (hash.startsWith("res-")) { state.res = hash.slice(4); document.getElementById("map").classList.add("res"); renderEdges(); renderPanel(); }
+if (hash.startsWith("focus-")) setFocus(hash.slice(6));
+if (hash.startsWith("room-")) openRoom(hash.slice(5));
+</script>
+</body>
+</html>

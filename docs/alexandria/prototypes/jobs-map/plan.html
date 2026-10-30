@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Sorare Product Roadmap · priority and sequence</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root { --ink: #0b1016; --line: #233340; --ghost: #3a4d5c; --text: #dbe7ef; --muted: #7d8fa0;
+    --cards: #4fd1c5; --money: #f0b45a; --rewards: #c4a1ff; --boost: #7ee081; --hot: #ff6a3d; --now: #f0b45a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; background: var(--ink); color: var(--text);
+    font: 14px/1.45 ui-sans-serif, -apple-system, "Inter", "Segoe UI", system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 18px; padding: 14px 24px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #0f171f, var(--ink)); position: sticky; top: 0; z-index: 20; }
+  header h1 { margin: 0; font: 600 20px/1.2 "Iowan Old Style", Georgia, serif; }
+  header .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  header .goal { margin-left: auto; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; background: #111a22; white-space: nowrap; }
+  a.linkish { color: var(--cards); text-decoration: none; } a.linkish:hover { text-decoration: underline; }
+  main { padding: 18px 24px 40px; display: grid; gap: 22px; }
+  h2 { font: 600 15px/1.2 ui-sans-serif, system-ui; letter-spacing: .4px; color: var(--muted); text-transform: uppercase; margin: 0 0 10px; }
+
+  /* the calendar */
+  .cal { display: grid; grid-template-columns: 220px 200px repeat(var(--n), 1fr); gap: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #0e161d; }
+  .cal > div { border-left: 1px solid var(--line); padding: 10px 12px; min-height: 54px; }
+  .cal > div:first-child, .cal > div.rowhead { border-left: 0; background: #0b121a; }
+  .ph { position: relative; }
+  .ph .name { font-weight: 700; font-size: 14px; }
+  .ph .when { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .ph .rule { color: #b9c7d1; font-size: 12px; margin-top: 6px; line-height: 1.4; }
+  .ph .dir { display: inline-block; margin-left: 8px; font-size: 11px; font-weight: 800; letter-spacing: 1px; color: var(--muted); }
+  .ph.past { opacity: .55; }
+  .ph.now { background: linear-gradient(180deg, rgba(240,180,90,.14), transparent); }
+  .ph.now .name::after, .ph.next .name::after { content: "NOW"; margin-left: 8px; font-size: 10px; font-weight: 800; letter-spacing: 1.4px; color: var(--now); vertical-align: middle; }
+  .ph.next .name::after { content: "NEXT"; color: var(--cards); }
+  .ev { display: inline-block; margin: 2px 6px 2px 0; padding: 2px 9px; border-radius: 999px; border: 1px dashed var(--ghost); font-size: 11.5px; color: #b9c7d1; }
+  .ev b { color: var(--text); }
+  .rowhead { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; display: flex; align-items: center; }
+
+  /* the feature rows */
+  .feat { display: grid; grid-template-columns: 220px 200px repeat(var(--n), 1fr); border-top: 1px solid var(--line); }
+  .feat > div { border-left: 1px solid var(--line); padding: 8px 10px; min-height: 40px; }
+  .feat > div:first-child { border-left: 0; background: #0b121a; }
+  .feat .fname { font-weight: 700; font-size: 13.5px; }
+  .feat .fmeta { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+  .chip { display: block; padding: 8px 10px; border-radius: 10px; background: #121d25; border: 1px solid #263845; box-shadow: 0 6px 18px rgba(0,0,0,.35); cursor: default; position: relative; }
+  .chip.proposed { border-style: dashed; border-color: rgba(255,106,61,.7); }
+  .chip.shipped { border-color: rgba(79,209,197,.6); }
+  .chip.partial { border-color: rgba(79,209,197,.35); border-style: dashed; }
+  .chip .fname { padding-right: 30px; }
+  .chip .score { position: absolute; right: 8px; top: 6px; font-size: 11px; font-weight: 800; color: var(--money); }
+  .chip.mini { padding: 5px 8px; margin-bottom: 6px; box-shadow: none; } .chip.mini .fname { font-size: 12px; font-weight: 600; }
+  .chip .jobs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .jt { font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--ghost); color: #b9c7d1; }
+  .jt i { font-style: normal; color: var(--muted); margin-left: 4px; letter-spacing: 1px; }
+  .jt.hub { border-color: var(--cards); color: var(--cards); }
+  .chip .note { display: none; position: absolute; left: 0; width: 360px; top: calc(100% + 6px); z-index: 10; padding: 10px 12px; border-radius: 10px;
+    background: #0d161d; border: 1px solid var(--ghost); color: #b9c7d1; font-size: 12.5px; line-height: 1.45; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  .chip:hover .note { display: block; }
+  .chip:hover { border-color: var(--ghost); z-index: 11; }
+
+  /* the cell grid */
+  .grid { display: grid; grid-template-columns: 200px 70px repeat(3, 1fr); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #0e161d; }
+  .grid > div { border-left: 1px solid var(--line); border-top: 1px solid var(--line); padding: 9px 12px; font-size: 12.5px; }
+  .grid > div:nth-child(-n+5) { border-top: 0; background: #0b121a; color: var(--muted); font-weight: 700; font-size: 11.5px; letter-spacing: 1px; text-transform: uppercase; }
+  .grid > div:nth-child(5n+1) { border-left: 0; font-weight: 700; font-size: 13.5px; background: #0b121a; }
+  .grid .imp { color: var(--money); font-weight: 800; text-align: center; }
+  .cell .st { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 1.2px; padding: 1px 7px; border-radius: 999px; margin-bottom: 4px; }
+  .cell.served .st { color: var(--cards); border: 1px solid rgba(79,209,197,.5); }
+  .cell.partial .st { color: var(--cards); border: 1px dashed rgba(79,209,197,.6); }
+  .cell.open .st { color: #ff9b7a; border: 1px dashed rgba(255,106,61,.6); }
+  .cell.na { color: var(--ghost); }
+  .cell .means { color: #b9c7d1; line-height: 1.4; }
+  .cell .by { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
+  .legend span::before { content: ""; display: inline-block; width: 14px; height: 10px; border-radius: 4px; margin-right: 6px; vertical-align: -1px; border: 1px solid; }
+  .legend .l-ship::before { border-color: rgba(79,209,197,.7); } .legend .l-part::before { border-style: dashed; border-color: rgba(79,209,197,.5); } .legend .l-prop::before { border-style: dashed; border-color: rgba(255,106,61,.7); }
+  .foot { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Sorare Product Roadmap · priority and sequence</h1>
+    <div class="sub">Features ranked by what they're worth against the season's calendar, which is a hypothesis: <span id="basis"></span>. · <a class="linkish" href="roadmap.html">the jobs map →</a> · <a class="linkish" href="v2.html">the dynamic system model →</a></div>
+  </div>
+  <div class="goal" id="goal"></div>
+</header>
+<main>
+  <section>
+    <h2>The season, and what to have built before each phase</h2>
+    <div class="cal" id="cal"></div>
+    <div id="rows"></div>
+    <div class="legend" style="margin-top:10px"><span class="l-ship">built</span><span class="l-part">partly built</span><span class="l-prop">proposed, placed in the phase it must exist before</span><span>score = Σ importance × weight, doubled when due next, discounted by what's already served</span></div>
+  </section>
+  <section>
+    <h2>Every job, every opening</h2>
+    <div class="grid" id="grid"></div>
+    <p class="foot" id="foot"></p>
+  </section>
+</main>
+<script src="sorare.jobs.js"></script>
+<script src="jobs-lib.js"></script>
+<script>
+const D = window.JOBS_DATA;
+document.getElementById("goal").textContent = "Goal: " + D.meta.goal.split(".")[0];
+document.getElementById("basis").textContent = (D.phases.find((p) => p.kind === "season") || {}).basis || "";
+const DIMS = ["better", "cheaper", "faster"], DL = { better: "B", cheaper: "C", faster: "F" };
+const jobsById = Object.fromEntries(D.jobs.map((j) => [j.id, j]));
+const season = D.phases.filter((p) => p.kind === "season"), events = D.phases.filter((p) => p.kind === "event");
+const idx = Object.fromEntries(season.map((p, i) => [p.id, i]));
+const colOfPhase = (id) => { if (id in idx) return idx[id]; const e = events.find((p) => p.id === id); // an event lands in the season phase it starts in
+  if (!e || !e.window.start) return season.length - 1; const i = season.findIndex((p) => p.window.start && p.window.start > e.window.start); return i < 0 ? season.length - 1 : Math.max(0, i - 1); };
+const fmt = (d) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
+const when = (p) => { const a = fmt(p.window.start), b = fmt(p.window.end); return a && b ? `${a} – ${b}` : a ? `from ${a}` : b ? `to ${b}` : (p.windowNote || ""); };
+
+const LIB = window.JOBS_LIB;
+const stOf = LIB.stOf, score = LIB.score;
+const phStatus = Object.fromEntries(D.phases.map((p) => [p.id, p.status]));
+// calendar header
+document.documentElement.style.setProperty("--n", season.length);
+let h = `<div class="rowhead">Season phase</div><div class="ph"><div class="name">Built already</div><div class="when">v1 and v2, as of ${D.meta.date}</div><div class="rule">What serves a job today. Partly built work sits here too, with the phase it must be finished for.</div></div>`;
+for (const p of season) h += `<div class="ph ${p.status}"><div class="name">${p.name}</div><div class="when">${when(p)}${p.priceDirection ? `<span class="dir">${p.priceDirection}</span>` : ""}</div><div class="rule">${p.rule}</div></div>`;
+h += `<div class="rowhead">Events</div><div></div>`;
+for (let i = 0; i < season.length; i++) h += `<div>${events.filter((e) => colOfPhase(e.id) === i).map((e) => `<span class="ev" title="${e.rule.replace(/"/g, "&quot;")}"><b>${e.name}</b> · ${when(e)}</span>`).join("")}</div>`;
+document.getElementById("cal").innerHTML = h;
+
+// feature rows: proposed first by score, then partial, then shipped
+const chip = (f) => { const sc = score(f);
+  return `<div class="chip ${f.status}">${sc !== null ? `<span class="score">${sc.toFixed(0)}</span>` : ""}<div class="fname">${f.name}</div>
+    <div class="jobs">${f.serves.map((s) => `<span class="jt ${s.job === "hub" ? "hub" : ""}">${jobsById[s.job].name}<i>${DL[s.dimension]}${s.coverage === "partial" ? "½" : ""}</i></span>`).join("")}</div>
+    <div class="note"><b>${f.status}</b>${f.where.length ? " · " + f.where.join(", ") : ""}${f.dueBy ? " · before " + (D.phases.find((p) => p.id === f.dueBy) || {}).name : ""}<br>${f.note || ""}</div></div>`; };
+const order = { proposed: 0, partial: 1, shipped: 2 };
+const feats = [...D.features].filter((f) => f.serves.length).sort((a, b) => order[a.status] - order[b.status] || (score(b) || 0) - (score(a) || 0) || a.name.localeCompare(b.name));
+let r = "";
+const row = (head, cells) => `<div class="feat"><div>${head}</div>${cells.map((c) => `<div>${c}</div>`).join("")}</div>`;
+const empty = () => Array(season.length + 1).fill("");
+for (const f of feats.filter((f) => f.status !== "shipped")) {
+  const cells = empty();
+  if (f.status === "proposed") cells[1 + colOfPhase(f.dueBy)] = chip(f);
+  else { cells[0] = chip(f); if (f.dueBy) cells[1 + colOfPhase(f.dueBy)] = `<div class="fmeta" style="padding-top:12px">finish for this phase ←</div>`; }
+  r += row(`<div class="fname">${f.status === "partial" ? "½ " : ""}${f.name.split(":")[0]}</div><div class="fmeta">${f.status === "proposed" ? "proposed" : "partly built"}${f.evidence === "inferred" ? " · inferred" : ""}</div>`, cells);
+}
+const built = feats.filter((f) => f.status === "shipped");
+const cells = empty(); cells[0] = built.map((f) => chip(f).replace('class="chip shipped"', 'class="chip shipped mini"')).join("");
+r += row(`<div class="fname">✓ Built</div><div class="fmeta">${built.length} tools serving jobs today · inferred from READMEs, not audited</div>`, cells);
+document.getElementById("rows").innerHTML = r;
+
+// cell grid, jobs by importance
+let g = `<div>Job</div><div>Imp.</div>${DIMS.map((d) => `<div>${d}</div>`).join("")}`;
+const cellsBy = {}; for (const c of D.cells) cellsBy[c.job + "/" + c.dimension] = c;
+const servedBy = (j, d) => D.features.filter((f) => f.status !== "proposed" && f.serves.some((s) => s.job === j && s.dimension === d)).map((f) => f.name.split(":")[0]);
+const wouldBy = (j, d) => D.features.filter((f) => f.status === "proposed" && f.serves.some((s) => s.job === j && s.dimension === d)).map((f) => f.name.split(":")[0]);
+for (const j of [...D.jobs].sort((a, b) => (b.importance || 0) - (a.importance || 0))) {
+  g += `<div>${j.name}${j.kind === "decision" ? ' <span style="color:var(--cards);font-size:10px;letter-spacing:1px">DECISION</span>' : ""}</div><div class="imp">${j.importance ?? "–"}</div>`;
+  for (const d of DIMS) { const c = cellsBy[j.id + "/" + d]; if (!c || !c.applies) { g += `<div class="cell na">n/a</div>`; continue; }
+    const st = stOf(j.id, d), by = servedBy(j.id, d), wb = wouldBy(j.id, d);
+    g += `<div class="cell ${st}"><span class="st">${st}</span><div class="means">${c.means}</div>${by.length ? `<div class="by">by ${by.join(", ")}</div>` : ""}${st !== "served" && wb.length ? `<div class="by">→ ${wb.join(", ")}</div>` : ""}</div>`; }
+}
+document.getElementById("grid").innerHTML = g;
+document.getElementById("foot").textContent = `${D.jobs.length} jobs · ${D.features.length} features · importance ${D.priority.importanceSource} · data ${D.meta.date}, v${D.meta.version}`;
+// #<jobId> dims everything that doesn't touch that job
+const focus = location.hash.slice(1);
+if (focus && jobsById[focus]) {
+  document.querySelectorAll(".feat").forEach((row, i) => { const f = feats[i]; if (f && !f.serves.some((s) => s.job === focus) && f.status !== "shipped") row.style.opacity = ".3"; });
+  document.querySelectorAll(".grid > div").forEach((el) => { if (el.textContent.trim().startsWith(jobsById[focus].name)) el.style.outline = "2px solid var(--cards)"; });
+}
+</script>
+</body>
+</html>

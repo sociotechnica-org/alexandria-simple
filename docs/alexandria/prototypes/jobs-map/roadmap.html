@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Sorare Jobs to be Done Product Roadmap</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --ink: #0b1016; --line: #233340; --ghost: #3a4d5c; --text: #dbe7ef; --muted: #7d8fa0;
+    --cards: #4fd1c5; --money: #f0b45a; --rewards: #c4a1ff; --boost: #7ee081;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text);
+    font: 14px/1.45 ui-sans-serif, -apple-system, "Inter", "Segoe UI", system-ui, sans-serif; }
+  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+  header { display: flex; align-items: center; gap: 18px; padding: 14px 24px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #0f171f, var(--ink)); }
+  header h1 { margin: 0; font: 600 20px/1.2 "Iowan Old Style", Georgia, serif; }
+  header .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  header .goal { margin-left: auto; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line);
+    color: var(--text); font-size: 13px; background: #111a22; white-space: nowrap; }
+  .linkish { color: var(--cards); text-decoration: none; }
+  .linkish:hover { text-decoration: underline; }
+  .stage { position: relative; overflow: hidden; background: radial-gradient(900px 620px at 50% 50%, #11232a 0%, var(--ink) 70%); }
+  .canvas { position: absolute; left: 0; top: 0; width: 1400px; height: 860px; transform-origin: 0 0; }
+  svg#wires { position: absolute; inset: 0; width: 1400px; height: 860px; overflow: visible; pointer-events: none; }
+
+  .tile { position: absolute; width: 260px; transform: translate(-50%, -50%); z-index: 3; cursor: default;
+    background: #121d25; border: 1px solid #263845; border-radius: 14px; padding: 14px 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35); transition: border-color .15s, box-shadow .15s; }
+  .tile:hover { border-color: var(--ghost); box-shadow: 0 10px 30px rgba(0,0,0,.5); z-index: 6; }
+  .tile .tag { font-size: 9.5px; font-weight: 800; letter-spacing: 1.6px; color: var(--muted); margin-bottom: 3px; }
+  .tile .top { display: flex; align-items: center; gap: 11px; }
+  .tile .ico { font-size: 20px; }
+  .tile .t { font-size: 17px; font-weight: 700; }
+  .tip { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 8px); z-index: 7; padding: 10px 13px; border-radius: 10px;
+    background: #0d161d; border: 1px solid var(--ghost); color: #b9c7d1; font-size: 12.5px; line-height: 1.45; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  .tile:hover .tip, .hub:hover .tip { display: block; }
+
+  .hub { position: absolute; width: 280px; height: 280px; transform: translate(-50%, -50%); border-radius: 50%; z-index: 3;
+    background: radial-gradient(circle at 50% 42%, #173a3a 0%, #0f2224 62%, #0b1718 100%);
+    border: 2px solid rgba(79,209,197,.85); box-shadow: 0 0 0 10px rgba(79,209,197,.05), 0 0 60px rgba(79,209,197,.2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .hub .cards { font-size: 12px; font-weight: 800; letter-spacing: 2.5px; color: var(--cards); }
+  .hub .q { font: 600 31px/1.12 "Iowan Old Style", Georgia, serif; margin-top: 10px; color: #f2fbfa; }
+  .hub .tip { left: 10px; right: 10px; top: calc(100% + 10px); text-align: left; }
+
+  .wallet { position: absolute; transform: translate(-50%, -50%); width: 440px; height: 66px; z-index: 3; border-radius: 14px;
+    border: 1px solid #3a4b58; background: #121d25; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .wallet b { font-size: 16px; }
+  .wallet small { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+
+  .legend { position: absolute; left: 50%; transform: translateX(-50%); bottom: 6px; display: flex; gap: 20px; align-items: center;
+    font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .legend i { display: inline-block; width: 24px; height: 0; border-top: 3px solid; vertical-align: middle; margin-right: 7px; border-radius: 2px; }
+  .legend i.dash { border-top-style: dashed; }
+
+  .wire { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+  .wire.dashed { stroke-dasharray: 7 7; }
+  .wl rect { fill: #0b141b; stroke-width: 1.2; }
+  .wl text { font-size: 12px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+
+  /* the room: what serves a job today, and what is planned */
+  .shade { position: fixed; inset: 0; background: rgba(5,9,13,.55); z-index: 30; display: none; }
+  .shade.on { display: block; }
+  .room { position: fixed; top: 0; right: 0; bottom: 0; width: 520px; z-index: 31; background: #0e161d; border-left: 1px solid var(--ghost);
+    box-shadow: -20px 0 60px rgba(0,0,0,.6); overflow: auto; padding: 22px 26px 30px; transform: translateX(100%); transition: transform .18s ease-out; }
+  .room.on { transform: none; }
+  .room .kicker { font-size: 10.5px; font-weight: 800; letter-spacing: 2px; color: var(--muted); }
+  .room h2 { margin: 4px 0 2px; font: 600 26px/1.15 "Iowan Old Style", Georgia, serif; }
+  .room .sum { color: #b9c7d1; font-size: 13px; margin: 6px 0 14px; }
+  .room h3 { margin: 18px 0 8px; font-size: 11.5px; font-weight: 800; letter-spacing: 1.4px; color: var(--muted); text-transform: uppercase; }
+  .room .close { position: absolute; right: 16px; top: 14px; border: 1px solid var(--line); background: #121d25; color: var(--muted); border-radius: 999px; width: 30px; height: 30px; cursor: pointer; font-size: 15px; }
+  .cells { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .cellbox { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #0b121a; }
+  .cellbox .st { font-size: 10px; font-weight: 800; letter-spacing: 1.2px; }
+  .cellbox.served .st { color: var(--cards); } .cellbox.partial .st { color: var(--cards); opacity: .75; } .cellbox.open .st { color: #ff9b7a; } .cellbox.na .st { color: var(--ghost); }
+  .cellbox .d { font-size: 12px; font-weight: 700; margin-top: 2px; }
+  .cellbox .m { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.35; }
+  .fl { display: grid; gap: 8px; }
+  .fi { border: 1px solid #263845; border-radius: 10px; padding: 9px 12px; background: #121d25; position: relative; }
+  .fi.proposed { border-style: dashed; border-color: rgba(255,106,61,.6); }
+  .fi.partial { border-style: dashed; border-color: rgba(79,209,197,.4); }
+  .fi.shipped { border-color: rgba(79,209,197,.6); }
+  .fi .n { font-weight: 700; font-size: 13.5px; }
+  .fi .meta { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .fi .note { color: #b9c7d1; font-size: 12px; margin-top: 5px; line-height: 1.4; }
+  .fi .score { position: absolute; right: 10px; top: 8px; color: var(--money); font-weight: 800; font-size: 12px; }
+  .fi .cov { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--ghost); color: #b9c7d1; margin: 4px 4px 0 0; }
+  .fi .cov.full { border-color: var(--cards); color: var(--cards); }
+  .room .pagelink { display: inline-block; margin: 2px 0 6px; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--cards); color: var(--cards); text-decoration: none; font-weight: 700; font-size: 13px; }
+  .room .pagelink:hover { background: rgba(79,209,197,.1); }
+  .fi .half { font-size: 10.5px; font-weight: 700; color: var(--muted); margin-left: 6px; }
+  .fi ul.how { margin: 6px 0 0; padding-left: 18px; color: #b9c7d1; font-size: 12.5px; line-height: 1.45; }
+  .fi ul.how li { margin: 3px 0; }
+  .fi ul.how b { color: var(--text); }
+  .room .empty { color: var(--muted); font-size: 12.5px; }
+  .room .foot { margin-top: 18px; color: var(--muted); font-size: 11.5px; line-height: 1.4; }
+  .tile, .hub { cursor: pointer; }
+  .tile.sel, .hub.sel { border-color: var(--cards); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1>Sorare Jobs to be Done Product Roadmap</h1>
+      <div class="sub">All roads lead to play, sell or seal. · <a class="linkish" href="plan.html">priority and sequence →</a> · <a class="linkish" href="v2.html">the dynamic system model →</a></div>
+    </div>
+    <div class="goal" id="goal"></div>
+  </header>
+  <div class="shade" id="shade"></div>
+  <aside class="room" id="room"></aside>
+  <div class="stage" id="stage"><div class="canvas" id="canvas">
+    <svg id="wires" viewBox="0 0 1400 860"><defs id="defs"></defs><g id="wire-layer"></g></svg>
+    <div id="nodes"></div>
+  </div></div>
+</div>
+<script src="sorare.jobs.js"></script>
+<script src="jobs-lib.js"></script>
+<script>
+// ---------------------------------------------------------------------------
+// Layout: the left column adds cards to the inventory, the right column puts
+// them to work or takes them out, augmenting sits in the middle.
+// Colour: a wire's colour is what moves along it.
+// Routing: wires to and from the wallet run in lanes around the tiles, never under them.
+// ---------------------------------------------------------------------------
+const COL = { cards: "#4fd1c5", money: "#f0b45a", rewards: "#c4a1ff", boost: "#7ee081" };
+const L = 255, R = 1145;   // column centres
+
+const D = window.JOBS_DATA;
+document.getElementById("goal").textContent = "Goal: " + D.meta.goal.split(".")[0].replace(/^L/, "l");
+// Layout is a rendering concern and stays here, keyed by job id. Words come from the data file.
+const LAYOUT = {
+  sorare: { x: L, y: 195, ico: "🔨" }, craft: { x: L, y: 440, ico: "⚗️" }, mbuy: { x: L, y: 670, ico: "🤝" },
+  augment: { x: 700, y: 110, ico: "✨" },
+  compete: { x: R, y: 195, ico: "🏆" }, vault: { x: R, y: 440, ico: "🔒" }, msell: { x: R, y: 670, ico: "🤝" },
+};
+const JOBS = {};
+for (const j of D.jobs) {
+  if (j.kind === "decision") continue;
+  JOBS[j.id] = { ...LAYOUT[j.id], t: j.name, tip: j.summary, tag: j.venue && j.venue.toUpperCase() !== "SORARE MARKETPLACE" ? j.venue.toUpperCase() : null };
+}
+const hubJob = D.jobs.find((j) => j.kind === "decision");
+const HUB = { x: 700, y: 430, tip: hubJob.summary, q: hubJob.name.replace(", ", ",<br>").replace(" or ", " or ") };
+const WALLET = { x: 700, y: 790, items: D.stocks.filter((s) => s.group !== "cards" && !(s.traits || []).includes("onCard")).map((s) => s.name.replace("Assignable XP", "XP").replace(/^([A-Z])([a-z])/, (m, a, b) => a.toLowerCase() + b)).join(" · ") };
+const FLOW = Object.fromEntries(D.flows.map((f) => [f.id, f]));
+const group = (f) => D.stocks.find((s) => s.id === f.carries[0]).group;
+const colOf = (f) => ({ cards: COL.cards, money: COL.money, rewards: group(f) === "rewards" && f.carries.includes("xp-assignable") && f.carries.length === 1 ? COL.boost : COL.rewards })[group(f)];
+const W = (id, geom) => { const f = FLOW[id]; return { ...geom, col: colOf(f), label: f.label, dashed: f.ownership === "second" || !!f.optional, both: f.direction === "both" }; };
+
+function renderNodes() {
+  let h = `<div class="hub" id="hub" style="left:${HUB.x}px;top:${HUB.y}px"><div class="cards">🃏 CARD INVENTORY</div>
+    <div class="q">${HUB.q}</div><div class="tip">${HUB.tip}</div></div>`;
+  for (const [id, j] of Object.entries(JOBS)) {
+    h += `<div class="tile" id="t-${id}" style="left:${j.x}px;top:${j.y}px">${j.tag ? `<div class="tag">${j.tag}</div>` : ""}
+      <div class="top"><span class="ico">${j.ico}</span><span class="t">${j.t}</span></div><div class="tip">${j.tip}</div></div>`;
+  }
+  h += `<div class="wallet" id="wallet" style="left:${WALLET.x}px;top:${WALLET.y}px"><b>👛 Your wallet</b><small>${WALLET.items}</small></div>`;
+  h += `<div class="legend"><span><i style="border-color:${COL.cards}"></i>first-owner cards</span><span><i class="dash" style="border-color:${COL.cards}"></i>second-owner cards</span>
+    <span><i style="border-color:${COL.money}"></i>cash · ETH</span><span><i style="border-color:${COL.rewards}"></i>Essence and prizes</span><span><i style="border-color:${COL.boost}"></i>XP and bonuses</span>
+    <span>⇄ comes back · → gone for good</span></div>`;
+  document.getElementById("nodes").innerHTML = h;
+}
+
+// Geometry in canvas coordinates. Nodes are centred on (left, top) by translate(-50%, -50%).
+function box(id) { const el = document.getElementById(id); return { x: el.offsetLeft - el.offsetWidth / 2, y: el.offsetTop - el.offsetHeight / 2, w: el.offsetWidth, h: el.offsetHeight }; }
+const edge = (id) => { const b = box(id); return { l: b.x, r: b.x + b.w, t: b.y, b: b.y + b.h, cx: b.x + b.w / 2, cy: b.y + b.h / 2 }; };
+function onHub(deg) { const b = box("hub"), r = b.w / 2; return [b.x + r + r * Math.cos(deg * Math.PI / 180), b.y + r + r * Math.sin(deg * Math.PI / 180)]; }
+
+// Curves for the card wires around the hub; rounded right-angle lanes for the wallet.
+function curve(a, b) { const k = (b[0] - a[0]) * .5; return `M${a[0]},${a[1]} C${a[0] + k},${a[1]} ${b[0] - k},${b[1]} ${b[0]},${b[1]}`; }
+function vcurve(a, b) { const k = (b[1] - a[1]) * .5; return `M${a[0]},${a[1]} C${a[0]},${a[1] + k} ${b[0]},${b[1] - k} ${b[0]},${b[1]}`; }
+function lane(pts, rad = 16) {
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [px, py] = pts[i - 1], [x, y] = pts[i], [nx, ny] = pts[i + 1];
+    const r1 = Math.min(rad, Math.hypot(x - px, y - py) / 2), r2 = Math.min(rad, Math.hypot(nx - x, ny - y) / 2);
+    const ux = Math.sign(x - px), uy = Math.sign(y - py), vx = Math.sign(nx - x), vy = Math.sign(ny - y);
+    d += ` L${x - ux * r1},${y - uy * r1} Q${x},${y} ${x + vx * r2},${y + vy * r2}`;
+  }
+  const [lx, ly] = pts[pts.length - 1];
+  return d + ` L${lx},${ly}`;
+}
+
+function wires() {
+  const s = edge("t-sorare"), c = edge("t-craft"), mb = edge("t-mbuy"), au = edge("t-augment"),
+    cp = edge("t-compete"), v = edge("t-vault"), ms = edge("t-msell"), w = edge("wallet"), hub = edge("hub");
+  return [
+    W("f-sorare-hub", { d: curve([s.r, s.cy], onHub(218)), at: [(s.r + onHub(218)[0]) / 2, (s.cy + onHub(218)[1]) / 2] }),
+    W("f-craft-hub", { d: curve([c.r, c.cy - 10], onHub(180)), at: [(c.r + hub.l) / 2, (c.cy - 10 + hub.cy) / 2] }),
+    W("f-mbuy-hub", { d: curve([mb.r, mb.cy], onHub(142)), at: [522, 566] }),
+    W("f-sorare-craft", { d: vcurve([s.cx, s.b], [c.cx, c.t]), at: [s.cx, (s.b + c.t) / 2] }),
+    W("f-augment-hub", { d: vcurve([au.cx, au.b], [hub.cx, hub.t]), at: [au.cx, (au.b + hub.t) / 2] }),
+    W("f-hub-compete", { d: curve(onHub(322), [cp.l, cp.cy]), at: [(onHub(322)[0] + cp.l) / 2, (onHub(322)[1] + cp.cy) / 2] }),
+    W("f-hub-vault", { d: curve([hub.r, hub.cy], [v.l, v.cy]), at: [(hub.r + v.l) / 2, (hub.cy + v.cy) / 2] }),
+    W("f-hub-msell", { d: curve(onHub(38), [ms.l, ms.cy]), at: [(onHub(38)[0] + ms.l) / 2, (onHub(38)[1] + ms.cy) / 2] }),
+    W("f-vault-compete", { d: vcurve([v.cx, v.t], [cp.cx, cp.b]), at: [v.cx, (v.t + cp.b) / 2] }),
+    W("f-msell-wallet", { d: lane([[ms.cx, ms.b], [ms.cx, w.t + 12], [w.r, w.t + 12]]), at: [1040, w.t + 12] }),
+    W("f-compete-wallet-money", { d: lane([[cp.r, cp.cy + 8], [1320, cp.cy + 8], [1320, w.cy], [w.r, w.cy]]), at: [1215, w.cy] }),
+    W("f-compete-wallet-prizes", { d: lane([[cp.r, cp.cy - 8], [1344, cp.cy - 8], [1344, w.b - 12], [w.r, w.b - 12]]), at: [1250, w.b - 12] }),
+    W("f-wallet-craft", { d: lane([[w.l, w.t + 12], [440, w.t + 12], [440, c.cy + 10], [c.r, c.cy + 10]]), at: [440, 600], rot: -90 }),
+    W("f-wallet-mbuy", { d: lane([[w.l, w.cy], [mb.cx, w.cy], [mb.cx, mb.b]]), at: [345, w.cy] }),
+    W("f-wallet-sorare", { d: lane([[w.l, w.b - 12], [60, w.b - 12], [60, s.cy], [s.l, s.cy]]), at: [60, 440], rot: -90 }),
+  ];
+}
+function renderWires() {
+  const ws = wires(), cols = [...new Set(ws.map((w) => w.col))];
+  document.getElementById("defs").innerHTML = cols.map((c, i) => `<marker id="m${i}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${c}"/></marker>`).join("");
+  let s = "";
+  for (const w of ws) {
+    const m = `url(#m${cols.indexOf(w.col)})`;
+    s += `<path class="wire ${w.dashed ? "dashed" : ""}" d="${w.d}" stroke="${w.col}" stroke-opacity=".9" marker-end="${m}" ${w.both ? `marker-start="${m}"` : ""}/>`;
+    const wd = w.label.length * 6.9 + 22, [x, y] = w.at;
+    s += `<g class="wl" transform="translate(${x},${y}) rotate(${w.rot || 0})"><rect x="${-wd / 2}" y="-12" width="${wd}" height="24" rx="12" stroke="${w.col}"/><text fill="${w.col}">${w.label}</text></g>`;
+  }
+  document.getElementById("wire-layer").innerHTML = s;
+}
+
+function fit() {
+  const st = document.getElementById("stage"), k = Math.min(st.clientWidth / 1400, st.clientHeight / 860);
+  const c = document.getElementById("canvas");
+  c.style.transform = `scale(${k})`;
+  c.style.left = `${(st.clientWidth - 1400 * k) / 2}px`; c.style.top = `${(st.clientHeight - 860 * k) / 2}px`;
+}
+renderNodes(); renderWires(); fit();
+window.addEventListener("resize", fit);
+// ---------------------------------------------------------------- the room
+const LIB = window.JOBS_LIB;
+const esc = (t) => String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+function roomHtml(jobId) {
+  const j = LIB.jobsById[jobId], serving = LIB.serving(jobId), planned = LIB.planned(jobId);
+  const how = (f, serves) => LIB.DIMS.filter((d) => f.how && f.how[d] && serves.some((s) => s.dimension === d))
+    .map((d) => `<li><b>${d[0].toUpperCase() + d.slice(1)}.</b> ${esc(f.how[d])}</li>`).join("");
+  const built = ({ f, serves }) => `<div class="fi ${f.status}"><div class="n">${f.page ? `<a class="linkish" href="${f.page}">${esc(f.name.split(":")[0])} →</a>` : esc(f.name.split(":")[0])}${f.status === "partial" ? ` <span class="half">partly built</span>` : ""}</div>
+      <ul class="how">${how(f, serves) || `<li>${esc(f.note || "")}</li>`}</ul></div>`;
+  const backlog = ({ f, serves }) => `<div class="fi ${f.status}"><div class="n">${esc(f.name.split(":")[0])}</div>
+      <ul class="how">${how(f, serves) || `<li>${esc(f.note || "")}</li>`}</ul>${f.issues && f.issues.length ? `<div class="meta">${f.issues.map((u) => `<a class="linkish" href="${u}">issue</a>`).join(" · ")}</div>` : ""}</div>`;
+  return `<button class="close" id="room-close" title="close">×</button>
+    <div class="kicker">${j.kind === "decision" ? "THE DECISION" : "JOB"}</div>
+    <h2>${esc(j.name)}</h2><div class="sum">${esc(j.summary)}</div>
+    ${j.page ? `<a class="pagelink" href="${j.page}">Open in the Sorare tooling →</a>` : ""}
+    <h3>What exists</h3>
+    <div class="fl">${serving.length ? serving.map(built).join("") : `<div class="empty">Nothing yet. This job is done by hand.</div>`}</div>
+    <h3>Backlog</h3>
+    <div class="fl">${planned.length ? planned.map(backlog).join("") : `<div class="empty">Nothing proposed.</div>`}</div>
+    <div class="foot"><a class="linkish" href="plan.html#${jobId}">See this job on the roadmap →</a></div>`;
+}
+function openRoom(jobId) {
+  if (!LIB.jobsById[jobId]) return;
+  document.querySelectorAll(".tile.sel, .hub.sel").forEach((el) => el.classList.remove("sel"));
+  const el = document.getElementById(jobId === "hub" ? "hub" : "t-" + jobId); if (el) el.classList.add("sel");
+  document.getElementById("room").innerHTML = roomHtml(jobId);
+  document.getElementById("room").classList.add("on"); document.getElementById("shade").classList.add("on");
+  document.getElementById("room-close").onclick = closeRoom;
+  history.replaceState(null, "", "#room-" + jobId);
+}
+function closeRoom() {
+  document.getElementById("room").classList.remove("on"); document.getElementById("shade").classList.remove("on");
+  document.querySelectorAll(".tile.sel, .hub.sel").forEach((el) => el.classList.remove("sel"));
+  history.replaceState(null, "", location.pathname);
+}
+document.getElementById("shade").onclick = closeRoom;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeRoom(); });
+document.getElementById("nodes").addEventListener("click", (e) => {
+  const t = e.target.closest(".tile, .hub"); if (!t) return;
+  openRoom(t.id === "hub" ? "hub" : t.id.slice(2));
+});
+if (location.hash.startsWith("#room-")) openRoom(location.hash.slice(6));
+</script>
+</body>
+</html>
